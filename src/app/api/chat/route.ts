@@ -1,15 +1,22 @@
 import { getOpenAI } from "@/lib/openai";
 import { SYSTEM_PROMPT } from "@/lib/prompts";
+import { createCorsPreflightResponse, getCorsHeaders } from "@/lib/cors";
 import { NextRequest, NextResponse } from "next/server";
 
+export function OPTIONS(req: NextRequest) {
+  return createCorsPreflightResponse(req);
+}
+
 export async function POST(req: NextRequest) {
+  const corsHeaders = getCorsHeaders(req);
+
   try {
     const { messages } = await req.json();
 
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
         { error: "API key not configured. Please set OPENAI_API_KEY in .env.local" },
-        { status: 500 }
+        { status: 500, headers: corsHeaders }
       );
     }
 
@@ -52,6 +59,7 @@ export async function POST(req: NextRequest) {
       headers: {
         "Content-Type": "text/plain",
         "Transfer-Encoding": "chunked",
+        ...corsHeaders,
       },
     });
   } catch (error) {
@@ -59,7 +67,7 @@ export async function POST(req: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
       { error: errorMessage },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }

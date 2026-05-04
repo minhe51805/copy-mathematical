@@ -40,6 +40,6 @@ GitHub Pages chi host static file, nen API chat khong chay truc tiep tren `githu
 Neu dat bien trong GitHub:
 
 - `Settings -> Secrets and variables -> Actions -> Variables` voi ten `NEXT_PUBLIC_API_BASE_URL`, hoac
-- `Settings -> Environments -> github-pages -> Environment variables` voi ten `NEXT_PUBLIC_API_BASE_URL`.
+- `Settings -> Environments -> .env -> Environment variables` voi ten `NEXT_PUBLIC_API_BASE_URL`.
 
 Sau khi doi bien, rerun workflow `Deploy to GitHub Pages` de build lai.

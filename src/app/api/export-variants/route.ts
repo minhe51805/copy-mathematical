@@ -1,4 +1,5 @@
 import { getOpenAI } from "@/lib/openai";
+import { createCorsPreflightResponse, getCorsHeaders } from "@/lib/cors";
 import { normalizeExportDrafts } from "@/lib/export-drafts";
 import { sanitizeAssistantContent } from "@/lib/math-utils";
 import { NextRequest, NextResponse } from "next/server";
@@ -13,21 +14,27 @@ interface ExportVariantResponse {
   }>;
 }
 
+export function OPTIONS(req: NextRequest) {
+  return createCorsPreflightResponse(req);
+}
+
 export async function POST(req: NextRequest) {
+  const corsHeaders = getCorsHeaders(req);
+
   try {
     const { content, request } = await req.json();
 
     if (typeof content !== "string" || !content.trim()) {
       return NextResponse.json(
         { error: "Missing content to export" },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
         { error: "API key not configured. Please set OPENAI_API_KEY in .env.local" },
-        { status: 500 }
+        { status: 500, headers: corsHeaders }
       );
     }
 
@@ -63,13 +70,13 @@ export async function POST(req: NextRequest) {
     const parsed = parseJson(raw);
     const variants = normalizeExportDrafts(parsed.variants ?? [], sanitizeAssistantContent(content), request);
 
-    return NextResponse.json({ variants });
+    return NextResponse.json({ variants }, { headers: corsHeaders });
   } catch (error) {
     console.error("Export variants API error:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
       { error: errorMessage },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
