@@ -1,0 +1,117 @@
+"use client";
+
+import { useCallback } from "react";
+import { useChatStore } from "@/stores/chat-store";
+import { generateId, sanitizeAssistantContent } from "@/lib/math-utils";
+
+interface SendMessageOptions {
+  onError?: (error: string) => void;
+  onFinish?: (result: {
+    assistantContent: string;
+    previousAssistantContent: string | null;
+    userMessage: string;
+  }) => void;
+}
+
+export function useChat(options?: SendMessageOptions) {
+  const onError = options?.onError;
+  const onFinish = options?.onFinish;
+  const {
+    messages,
+    isLoading,
+    addMessage,
+    updateMessage,
+    clearMessages,
+    setLoading,
+    saveConversation,
+  } = useChatStore();
+
+  const sendMessage = useCallback(
+    async (content: string) => {
+      if (!content.trim() || isLoading) return;
+
+      const previousAssistantContent =
+        [...messages].reverse().find((message) =>
+          message.role === "assistant" && message.content.trim()
+        )?.content ?? null;
+
+      const userMessage = {
+        id: generateId(),
+        role: "user" as const,
+        content: content.trim(),
+        timestamp: Date.now(),
+      };
+
+      addMessage(userMessage);
+      setLoading(true);
+
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: messages.concat(userMessage).map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
+          }),
+        });
+
+        if (!response.ok) {
+          let errorMsg = "Failed to get response";
+          try {
+            const errorData = await response.json();
+            errorMsg = errorData.error || errorMsg;
+          } catch {
+            errorMsg = `HTTP ${response.status}: ${response.statusText}`;
+          }
+          throw new Error(errorMsg);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("No response body");
+
+        const assistantMessageId = generateId();
+        addMessage({
+          id: assistantMessageId,
+          role: "assistant",
+          content: "",
+          timestamp: Date.now(),
+        });
+
+        const decoder = new TextDecoder();
+        let assistantContent = "";
+        let visibleAssistantContent = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          assistantContent += chunk;
+          visibleAssistantContent = sanitizeAssistantContent(assistantContent);
+          updateMessage(assistantMessageId, visibleAssistantContent);
+        }
+
+        saveConversation();
+        onFinish?.({
+          assistantContent: visibleAssistantContent,
+          previousAssistantContent,
+          userMessage: userMessage.content,
+        });
+      } catch (error) {
+        console.error("Chat error:", error);
+        onError?.(error instanceof Error ? error.message : "Unknown error");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [messages, isLoading, addMessage, updateMessage, setLoading, saveConversation, onError, onFinish]
+  );
+
+  return {
+    messages,
+    isLoading,
+    sendMessage,
+    clearMessages,
+  };
+}
