@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Math Chat
 
-## Getting Started
+Chat UI ho tro Markdown, cong thuc toan hoc va xuat noi dung ra file Word.
 
-First, run the development server:
+## Chay local
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Mo `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Can tao `.env.local`:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```env
+OPENAI_API_KEY=...
+OPENAI_BASE_URL=...
+OPENAI_MODEL=...
+```
 
-## Learn More
+## Deploy day du tinh nang
 
-To learn more about Next.js, take a look at the following resources:
+Ung dung nay co route server `/api/chat` va `/api/export-variants`, vi vay ban deploy day du nen dung Vercel/Netlify/Render hoac mot server Node.js co bien moi truong `OPENAI_API_KEY`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploy GitHub Pages
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Repo da co workflow `.github/workflows/pages.yml` de build static site vao `out/` va deploy len GitHub Pages.
 
-## Deploy on Vercel
+Trong GitHub repo:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Vao `Settings -> Pages`.
+2. Chon `Source: GitHub Actions`.
+3. Push code len branch `master`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+GitHub Pages chi host static file, nen API chat khong chay truc tiep tren `github.io`. Neu muon giao dien tren GitHub Pages goi backend rieng, tao repository variable `NEXT_PUBLIC_API_BASE_URL` tro den backend do.

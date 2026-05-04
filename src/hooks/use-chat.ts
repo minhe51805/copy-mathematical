@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { useChatStore } from "@/stores/chat-store";
+import { getApiUrl, hasRuntimeApi } from "@/lib/api-url";
 import { generateId, sanitizeAssistantContent } from "@/lib/math-utils";
 
 interface SendMessageOptions {
@@ -46,7 +47,13 @@ export function useChat(options?: SendMessageOptions) {
       setLoading(true);
 
       try {
-        const response = await fetch("/api/chat", {
+        if (!hasRuntimeApi()) {
+          throw new Error(
+            "Bản GitHub Pages chỉ chạy giao diện tĩnh nên không có API chat. Hãy deploy bằng Vercel hoặc cấu hình NEXT_PUBLIC_API_BASE_URL tới backend riêng."
+          );
+        }
+
+        const response = await fetch(getApiUrl("/api/chat"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

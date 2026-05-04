@@ -18,6 +18,7 @@ import {
   type ExportDraft,
   type ExportDraftId,
 } from "@/lib/export-drafts";
+import { getApiUrl, hasRuntimeApi } from "@/lib/api-url";
 import { generateDocx, downloadDocx } from "@/lib/docx-generator";
 import { cn } from "@/lib/utils";
 
@@ -63,7 +64,11 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
 
     async function loadDrafts() {
       try {
-        const response = await fetch("/api/export-variants", {
+        if (!hasRuntimeApi()) {
+          throw new Error("Static export has no runtime API");
+        }
+
+        const response = await fetch(getApiUrl("/api/export-variants"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content: sourceContent, request: sourceRequest }),
