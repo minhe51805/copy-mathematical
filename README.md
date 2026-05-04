@@ -33,4 +33,13 @@ Trong GitHub repo:
 2. Chon `Source: GitHub Actions`.
 3. Push code len branch `master`.
 
-GitHub Pages chi host static file, nen API chat khong chay truc tiep tren `github.io`. Neu muon giao dien tren GitHub Pages goi backend rieng, tao repository variable `NEXT_PUBLIC_API_BASE_URL` tro den backend do.
+GitHub Pages chi host static file, nen API chat khong chay truc tiep tren `github.io`.
+
+`NEXT_PUBLIC_API_BASE_URL` phai la URL backend da deploy, vi du `https://ten-app.vercel.app`. Day khong phai OpenAI key. Khong dua `OPENAI_API_KEY` vao bien `NEXT_PUBLIC_*` vi no se bi dong goi vao JavaScript public.
+
+Neu dat bien trong GitHub:
+
+- `Settings -> Secrets and variables -> Actions -> Variables` voi ten `NEXT_PUBLIC_API_BASE_URL`, hoac
+- `Settings -> Environments -> github-pages -> Environment variables` voi ten `NEXT_PUBLIC_API_BASE_URL`.
+
+Sau khi doi bien, rerun workflow `Deploy to GitHub Pages` de build lai.

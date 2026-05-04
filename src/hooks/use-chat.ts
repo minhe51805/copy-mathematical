@@ -49,7 +49,7 @@ export function useChat(options?: SendMessageOptions) {
       try {
         if (!hasRuntimeApi()) {
           throw new Error(
-            "Bản GitHub Pages chỉ chạy giao diện tĩnh nên không có API chat. Hãy deploy bằng Vercel hoặc cấu hình NEXT_PUBLIC_API_BASE_URL tới backend riêng."
+            "GitHub Pages chỉ chạy giao diện tĩnh nên không có API chat. NEXT_PUBLIC_API_BASE_URL phải là URL backend đã deploy, không phải OPENAI_API_KEY. Nếu muốn chạy đủ tính năng, deploy app bằng Vercel."
           );
         }
 
