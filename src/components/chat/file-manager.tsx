@@ -33,20 +33,20 @@ export function FileManager({
   const totalFiles = pendingAttachments.length + uploadedFiles.length;
 
   return (
-    <aside className="hidden w-[300px] shrink-0 border-l bg-card/40 lg:flex lg:flex-col">
-      <div className="border-b px-4 py-3">
+    <aside className="hidden w-[312px] shrink-0 border-l bg-background lg:flex lg:flex-col">
+      <div className="border-b bg-card/70 px-5 py-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold">Tệp đã đưa lên</h2>
             <p className="text-xs text-muted-foreground">{totalFiles} file</p>
           </div>
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-[hsl(var(--terracotta))]">
             <FileText className="h-4 w-4" />
           </div>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {totalFiles === 0 ? (
           <div className="flex h-full items-center justify-center text-center">
             <p className="max-w-[13rem] text-sm text-muted-foreground">
@@ -96,7 +96,7 @@ function FileSection({
 }) {
   return (
     <section>
-      <h3 className="mb-2 px-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+      <h3 className="mb-2 px-1 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
         {title}
       </h3>
       <div className="space-y-2">{children}</div>
@@ -124,7 +124,7 @@ function FileManagerItem({
   };
 
   return (
-    <div className="group rounded-xl border bg-background p-2 shadow-sm">
+    <div className="group rounded-xl border border-border/15 bg-card p-3 shadow-[var(--shadow-sm)] transition-shadow hover:shadow-[var(--shadow-md)]">
       <div className="flex gap-2">
         <FileThumbnail attachment={attachment} />
         <div className="min-w-0 flex-1">
@@ -137,7 +137,7 @@ function FileManagerItem({
       <div className="mt-2 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1">
           {isImageAttachment(attachment) ? (
-            <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs">
+            <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-xs">
               <a href={attachment.dataUrl} target="_blank" rel="noreferrer">
                 Mở
               </a>
@@ -147,7 +147,7 @@ function FileManagerItem({
               type="button"
               variant="ghost"
               size="sm"
-              className="h-7 gap-1 px-2 text-xs"
+              className="h-8 gap-1 px-2 text-xs"
               onClick={handleCopyText}
             >
               {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
@@ -160,7 +160,7 @@ function FileManagerItem({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-7 w-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          className="h-8 w-8 text-muted-foreground hover:border-destructive/20 hover:bg-destructive/10 hover:text-destructive"
           onClick={onRemove}
           aria-label="Xóa file"
           title="Xóa file"
@@ -175,7 +175,7 @@ function FileManagerItem({
 function FileThumbnail({ attachment }: { attachment: ChatAttachment }) {
   if (isImageAttachment(attachment)) {
     return (
-      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border bg-muted">
+      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-border/15 bg-secondary">
         <img
           src={attachment.dataUrl}
           alt={attachment.name}
@@ -190,7 +190,7 @@ function FileThumbnail({ attachment }: { attachment: ChatAttachment }) {
   return (
     <div
       className={cn(
-        "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border bg-muted text-muted-foreground",
+        "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border/15 bg-secondary text-muted-foreground",
         isSpreadsheetAttachment(attachment) && "text-green-500"
       )}
     >

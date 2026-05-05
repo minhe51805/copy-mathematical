@@ -47,32 +47,32 @@ export function MessageList({ messages, isLoading, onExport }: MessageListProps)
   return (
     <div className="relative min-h-0 flex-1 bg-background">
       <ScrollArea className="h-full" ref={scrollRef} onScroll={handleScroll}>
-        <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-6 px-4 pb-6 pt-4 md:px-6">
+        <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-8 px-5 pb-8 pt-6 md:px-10">
           {messages.length === 0 && !isLoading && (
-            <div className="flex min-h-[calc(100dvh-14rem)] flex-col items-center justify-center px-2 text-center">
-              <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl border bg-card text-xl font-semibold shadow-sm">
+            <div className="flex min-h-[calc(100dvh-15rem)] flex-col items-center justify-center px-2 text-center">
+              <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl border border-border/15 bg-card text-xl font-semibold text-[hsl(var(--terracotta))] shadow-[var(--shadow-sm)]">
                 ∑
               </div>
-              <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+              <h2 className="max-w-2xl text-[32px] font-normal leading-[1.18] text-foreground md:text-[48px]">
                 Tôi có thể giúp gì cho bạn?
               </h2>
-              <div className="mt-8 grid w-full max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="mt-10 grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
                 {SUGGESTIONS.map((suggestion, index) => (
                   <button
                     key={index}
-                    className="group flex min-h-[112px] flex-col items-start gap-2 rounded-2xl border bg-card p-4 text-left transition-colors hover:bg-accent"
+                    className="claude-card claude-card-hover group flex min-h-[128px] flex-col items-start gap-3 p-5 text-left"
                     onClick={() => {
                       const event = new CustomEvent("suggestion-click", { detail: suggestion.text });
                       window.dispatchEvent(event);
                     }}
                   >
                     <div className="flex items-center gap-2">
-                      <suggestion.icon className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs font-medium uppercase text-muted-foreground">
+                      <suggestion.icon className="h-4 w-4 text-[hsl(var(--terracotta))]" />
+                      <span className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
                         {suggestion.label}
                       </span>
                     </div>
-                    <p className="text-sm leading-snug text-foreground/85 transition-colors group-hover:text-foreground">
+                    <p className="text-[15px] leading-[22.5px] text-foreground/85 transition-colors group-hover:text-foreground">
                       {suggestion.text}
                     </p>
                   </button>
@@ -85,13 +85,13 @@ export function MessageList({ messages, isLoading, onExport }: MessageListProps)
             <div
               key={message.id}
               className={cn(
-                "flex w-full gap-3",
+                "flex w-full gap-4",
                 message.role === "user" ? "justify-end message-enter-user" : "justify-start message-enter-ai"
               )}
             >
               {message.role === "assistant" && (
-                <Avatar className="mt-1 h-8 w-8 shrink-0 rounded-lg">
-                  <AvatarFallback className="rounded-lg bg-foreground text-xs font-semibold text-background">
+                <Avatar className="mt-1 h-8 w-8 shrink-0 rounded-lg shadow-[var(--shadow-sm)]">
+                  <AvatarFallback className="rounded-lg bg-[hsl(var(--terracotta))] text-xs font-semibold text-white">
                     AI
                   </AvatarFallback>
                 </Avatar>
@@ -104,10 +104,10 @@ export function MessageList({ messages, isLoading, onExport }: MessageListProps)
             <div className="flex gap-3 animate-fade-in">
               <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
               <div className="flex flex-1 flex-col gap-2 pt-1">
-                <div className="flex h-8 w-fit items-center gap-1 rounded-full bg-muted px-3">
-                  <div className="typing-dot h-1.5 w-1.5 rounded-full bg-muted-foreground/70" />
-                  <div className="typing-dot h-1.5 w-1.5 rounded-full bg-muted-foreground/70" />
-                  <div className="typing-dot h-1.5 w-1.5 rounded-full bg-muted-foreground/70" />
+                <div className="flex h-10 w-fit items-center gap-1 rounded-[9.6px] border border-border/15 bg-card px-4 shadow-[var(--shadow-sm)]">
+                  <div className="typing-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--terracotta))]" />
+                  <div className="typing-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--terracotta))]" />
+                  <div className="typing-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--terracotta))]" />
                 </div>
                 <Skeleton className="h-4 w-3/4" />
                 <Skeleton className="h-4 w-1/2" />
@@ -122,7 +122,7 @@ export function MessageList({ messages, isLoading, onExport }: MessageListProps)
       {showScrollButton && (
         <button
           onClick={scrollToBottom}
-          className="absolute bottom-4 right-4 flex h-9 w-9 items-center justify-center rounded-full border bg-background text-foreground shadow-sm transition-colors hover:bg-accent"
+          className="absolute bottom-4 right-4 flex h-11 w-11 items-center justify-center rounded-full border border-border/15 bg-card text-foreground shadow-[var(--shadow-sm)] transition-colors hover:bg-secondary"
           aria-label="Scroll to bottom"
         >
           <ChevronDown className="h-4 w-4" />

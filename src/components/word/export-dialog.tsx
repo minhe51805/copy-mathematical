@@ -175,13 +175,15 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
 
   return (
     <Dialog open={!!content} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="flex max-h-[90dvh] gap-0 overflow-hidden bg-[hsl(var(--background))] p-0 text-[hsl(var(--foreground))] shadow-2xl sm:max-w-6xl">
-        <div className="flex min-h-0 w-full flex-col bg-[hsl(var(--background))]">
-          <DialogHeader className="border-b bg-[hsl(var(--background))] px-6 py-5">
+      <DialogContent className="flex max-h-[90dvh] gap-0 overflow-hidden border-border/15 bg-card p-0 text-foreground shadow-[var(--shadow-md)] sm:max-w-6xl">
+        <div className="flex min-h-0 w-full flex-col bg-card">
+          <DialogHeader className="border-b border-border/15 bg-card px-6 py-5">
             <div className="flex items-start justify-between gap-4 pr-8">
               <div>
-                <DialogTitle className="flex items-center gap-2 text-xl">
-                  <FileText className="h-5 w-5" />
+                <DialogTitle className="flex items-center gap-2 text-2xl font-semibold">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-[hsl(var(--terracotta))]">
+                    <FileText className="h-[18px] w-[18px]" />
+                  </span>
                   Xuất nội dung vừa trả lời
                 </DialogTitle>
                 <DialogDescription className="mt-2 max-w-3xl">
@@ -190,16 +192,16 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
                     : "Bản gốc là câu trả lời AI ngay phía trên. App sẽ tạo thêm 3 phiên bản bằng AI để bạn xem trước và chọn bản muốn xuất."}
                 </DialogDescription>
               </div>
-              <div className="hidden rounded-full border bg-[hsl(var(--muted))] px-3 py-1 text-xs text-muted-foreground md:block">
+              <div className="claude-badge hidden px-3 py-1 text-xs text-muted-foreground md:block">
                 Word .doc
               </div>
             </div>
           </DialogHeader>
 
           <div className="grid min-h-0 flex-1 overflow-hidden md:grid-cols-[340px_minmax(0,1fr)]">
-            <aside className="min-h-0 border-b bg-[hsl(var(--card))] md:border-b-0 md:border-r">
+            <aside className="min-h-0 border-b border-border/15 bg-background md:border-b-0 md:border-r">
               <div className="flex h-full min-h-0 flex-col">
-                <div className="border-b bg-[hsl(var(--background))] p-4">
+                <div className="border-b border-border/15 bg-card p-4">
                   <p className="text-sm font-medium">Phiên bản để xuất</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Chọn một bản, xem preview bên phải rồi xuất file.
@@ -230,8 +232,8 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
               </div>
             </aside>
 
-            <section className="flex min-h-0 flex-col bg-[hsl(var(--background))]">
-              <div className="border-b bg-[hsl(var(--background))] px-5 py-4">
+            <section className="flex min-h-0 flex-col bg-card">
+              <div className="border-b border-border/15 bg-card px-5 py-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -239,13 +241,13 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
                         {selectedDraft?.title ?? "Đang chuẩn bị nội dung"}
                       </h3>
                       {selectedDraft?.source === "ai" && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[hsl(var(--muted))] px-2 py-0.5 text-xs text-muted-foreground">
+                        <span className="inline-flex items-center gap-1 rounded-lg border border-border/15 bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
                           <Sparkles className="h-3 w-3" />
                           AI viết lại
                         </span>
                       )}
                       {selectedDraft?.source === "original" && (
-                        <span className="rounded-full bg-[hsl(var(--muted))] px-2 py-0.5 text-xs text-muted-foreground">
+                        <span className="rounded-lg border border-border/15 bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
                           Bản gốc
                         </span>
                       )}
@@ -255,30 +257,30 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
                     </p>
                   </div>
                   {selectedDraft && (
-                    <div className="rounded-lg border px-3 py-2 text-xs text-muted-foreground">
+                    <div className="rounded-lg border border-border/15 bg-secondary px-3 py-2 text-xs text-muted-foreground">
                       {getWordExportFilename(selectedDraft.filename)}
                     </div>
                   )}
                 </div>
 
                 {request && (
-                  <div className="mt-3 rounded-xl border bg-[hsl(var(--card))] p-3 text-sm">
+                  <div className="mt-3 rounded-xl border border-border/15 bg-secondary p-3 text-sm">
                     <span className="font-medium">Yêu cầu xuất: </span>
                     <span className="text-muted-foreground">{request}</span>
                   </div>
                 )}
 
                 {loadError && (
-                  <div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
+                  <div className="mt-3 flex items-center gap-2 rounded-xl border border-[hsl(var(--warning))]/30 bg-[hsl(var(--warning))]/10 p-3 text-sm text-[#B45309] dark:text-amber-300">
                     <RefreshCw className="h-4 w-4" />
                     {loadError}
                   </div>
                 )}
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto bg-[hsl(var(--card))] p-5">
+              <div className="min-h-0 flex-1 overflow-y-auto bg-background p-5">
                 {selectedDraft ? (
-                  <div ref={previewRef} className="mx-auto max-w-3xl rounded-2xl border bg-[hsl(var(--background))] p-5 shadow-sm">
+                  <div ref={previewRef} className="mx-auto max-w-3xl rounded-xl border border-border/15 bg-card p-6 shadow-[var(--shadow-sm)]">
                     <MathRenderer content={selectedDraft.content} />
                   </div>
                 ) : (
@@ -290,7 +292,7 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
             </section>
           </div>
 
-          <DialogFooter className="border-t bg-[hsl(var(--background))] px-6 py-4">
+          <DialogFooter className="border-t border-border/15 bg-card px-6 py-4">
             <Button variant="outline" onClick={handleClose}>
               Hủy
             </Button>
@@ -330,14 +332,14 @@ function DraftOption({
       type="button"
       onClick={onSelect}
       className={cn(
-        "flex w-full items-start gap-3 rounded-2xl border bg-[hsl(var(--background))] p-3 text-left transition-colors hover:bg-[hsl(var(--accent))]",
-        selected && "border-foreground bg-[hsl(var(--accent))]"
+        "flex w-full items-start gap-3 rounded-xl border border-border/15 bg-card p-3 text-left shadow-[var(--shadow-sm)] transition-all hover:border-border/30 hover:bg-secondary",
+        selected && "border-[hsl(var(--terracotta))]/70 bg-secondary shadow-[var(--shadow-md)]"
       )}
     >
       <div
         className={cn(
           "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs",
-          selected ? "border-foreground bg-foreground text-background" : "text-muted-foreground"
+          selected ? "border-[hsl(var(--terracotta))] bg-[hsl(var(--terracotta))] text-white" : "text-muted-foreground"
         )}
       >
         {selected ? <Check className="h-3.5 w-3.5" /> : index + 1}
@@ -357,7 +359,7 @@ function DraftOption({
 
 function LoadingDraftOption({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border bg-[hsl(var(--background))] p-3 text-sm text-muted-foreground">
+    <div className="flex items-center gap-3 rounded-xl border border-border/15 bg-card p-3 text-sm text-muted-foreground shadow-[var(--shadow-sm)]">
       <Loader2 className="h-4 w-4 animate-spin" />
       {label}
     </div>

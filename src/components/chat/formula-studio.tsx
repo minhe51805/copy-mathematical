@@ -443,10 +443,12 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden bg-[hsl(var(--background))] p-0 text-[hsl(var(--foreground))] sm:max-w-5xl">
-        <DialogHeader className="border-b bg-[hsl(var(--background))] px-5 py-4">
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <Sigma className="h-5 w-5" />
+      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden border-border/15 bg-card p-0 text-foreground sm:max-w-5xl">
+        <DialogHeader className="border-b bg-card px-5 py-4">
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-[hsl(var(--terracotta))]">
+              <Sigma className="h-[18px] w-[18px]" />
+            </span>
             Math Studio
           </DialogTitle>
           <DialogDescription>
@@ -454,14 +456,14 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
           </DialogDescription>
         </DialogHeader>
 
-        <div className="border-b bg-[hsl(var(--card))] px-5 py-3">
-          <div className="inline-flex rounded-xl border bg-background p-1">
+        <div className="border-b bg-background px-5 py-3">
+          <div className="inline-flex rounded-xl border border-border/15 bg-card p-1 shadow-[var(--shadow-sm)]">
             <button
               type="button"
               onClick={() => setMode("typing")}
               className={cn(
-                "flex h-8 items-center gap-2 rounded-lg px-3 text-sm transition-colors",
-                mode === "typing" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                "flex h-9 items-center gap-2 rounded-lg px-3 text-sm transition-colors",
+                mode === "typing" ? "bg-[#1F1E1D] text-white dark:bg-[#FAF9F5] dark:text-[#1F1E1D]" : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
               )}
             >
               <Keyboard className="h-4 w-4" />
@@ -471,8 +473,8 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
               type="button"
               onClick={() => setMode("drawing")}
               className={cn(
-                "flex h-8 items-center gap-2 rounded-lg px-3 text-sm transition-colors",
-                mode === "drawing" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                "flex h-9 items-center gap-2 rounded-lg px-3 text-sm transition-colors",
+                mode === "drawing" ? "bg-[#1F1E1D] text-white dark:bg-[#FAF9F5] dark:text-[#1F1E1D]" : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
               )}
             >
               <PenLine className="h-4 w-4" />
@@ -484,13 +486,13 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
         {mode === "typing" ? (
           <div className="grid min-h-0 flex-1 overflow-hidden md:grid-cols-[minmax(0,1fr)_320px]">
             <section className="flex min-h-0 flex-col border-b md:border-b-0 md:border-r">
-              <div className="border-b bg-[hsl(var(--card))] p-4">
+              <div className="border-b bg-card p-4">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   <div className="relative min-w-[15rem]" onClick={(event) => event.stopPropagation()}>
                     <button
                       type="button"
                       onClick={() => setIsFontMenuOpen((value) => !value)}
-                      className="flex h-10 w-full items-center justify-between gap-3 rounded-xl border bg-background px-3 text-left text-sm text-foreground shadow-sm transition-colors hover:bg-accent"
+                      className="flex h-11 w-full items-center justify-between gap-3 rounded-[9.6px] border border-border/15 bg-card px-3 text-left text-sm text-foreground shadow-[var(--shadow-sm)] transition-colors hover:border-border/30 hover:bg-secondary"
                       aria-label="Chọn font công thức"
                       aria-expanded={isFontMenuOpen}
                     >
@@ -501,7 +503,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
                       <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                     </button>
                     {isFontMenuOpen && (
-                      <div className="absolute left-0 top-11 z-50 max-h-72 w-full overflow-y-auto rounded-xl border bg-popover p-1 text-popover-foreground shadow-lg">
+                      <div className="absolute left-0 top-12 z-50 max-h-72 w-full overflow-y-auto rounded-xl border border-border/15 bg-popover p-1 text-popover-foreground shadow-[var(--shadow-md)]">
                         {FONT_OPTIONS.map((option) => (
                           <button
                             key={option.value}
@@ -513,8 +515,8 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
                             className={cn(
                               "flex h-9 w-full items-center rounded-lg px-3 text-left text-sm transition-colors",
                               font === option.value
-                                ? "bg-accent text-accent-foreground"
-                                : "text-popover-foreground hover:bg-accent hover:text-accent-foreground"
+                                ? "bg-[hsl(var(--terracotta))] text-white"
+                                : "text-popover-foreground hover:bg-secondary"
                             )}
                           >
                             {option.label}
@@ -556,13 +558,13 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
                 />
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto bg-[hsl(var(--background))] p-4">
+              <div className="min-h-0 flex-1 overflow-y-auto bg-background p-4">
                 <div
                   ref={previewRef}
                   data-font={font}
                   data-italic={isItalic ? "on" : "off"}
                   className={cn(
-                    "formula-studio-preview min-h-40 select-text rounded-xl border bg-[hsl(var(--card))] p-5",
+                    "formula-studio-preview min-h-40 select-text rounded-xl border border-border/15 bg-card p-5 shadow-[var(--shadow-sm)]",
                     "text-[17px] leading-8"
                   )}
                   onCopy={(event) => {
@@ -574,7 +576,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
               </div>
             </section>
 
-            <aside className="min-h-0 overflow-y-auto bg-[hsl(var(--card))] p-4">
+            <aside className="min-h-0 overflow-y-auto bg-background p-4">
               <div className="grid gap-4">
                 {SYMBOL_GROUPS.map((group) => {
                   const Icon = group.icon;
@@ -592,7 +594,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
                             title={item.label}
                             aria-label={item.label}
                             onClick={() => insertSnippet(item.value)}
-                            className="flex h-10 items-center justify-center rounded-lg border bg-background px-2 text-sm font-medium transition-colors hover:bg-accent"
+                            className="flex h-10 items-center justify-center rounded-lg border border-border/15 bg-card px-2 text-sm font-medium transition-colors hover:border-border/30 hover:bg-secondary"
                           >
                             {item.display}
                           </button>
@@ -605,8 +607,8 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
             </aside>
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[hsl(var(--background))]">
-            <div className="grid gap-3 border-b bg-[hsl(var(--card))] p-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
+            <div className="grid gap-3 border-b bg-card p-4 lg:grid-cols-[minmax(0,1fr)_360px]">
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
@@ -626,7 +628,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
                   <Eraser className="h-4 w-4" />
                   Tẩy
                 </Button>
-                <label className="flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 text-sm">
+                <label className="flex min-h-10 items-center gap-2 rounded-lg border border-border/15 bg-card px-3 py-1.5 text-sm shadow-[var(--shadow-sm)]">
                   Nét
                   <input
                     type="range"
@@ -647,7 +649,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
                 </Button>
               </div>
 
-              <div className="min-h-20 rounded-xl border bg-background p-3">
+              <div className="min-h-20 rounded-xl border border-border/15 bg-card p-3 shadow-[var(--shadow-sm)]">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                     <Sparkles className="h-3.5 w-3.5" />
@@ -697,7 +699,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
                 ref={canvasRef}
                 width={DRAWING_WIDTH}
                 height={DRAWING_HEIGHT}
-                className="block h-[300px] w-full touch-none rounded-2xl border bg-white shadow-sm"
+                className="block h-[300px] w-full touch-none rounded-xl border border-border/15 bg-white shadow-[var(--shadow-sm)]"
                 onPointerDown={beginDrawing}
                 onPointerMove={draw}
                 onPointerUp={endDrawing}
@@ -711,7 +713,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
           </div>
         )}
 
-        <DialogFooter className="gap-2 border-t bg-[hsl(var(--background))] px-5 py-4 sm:justify-between">
+        <DialogFooter className="gap-2 border-t bg-card px-5 py-4 sm:justify-between">
           {mode === "typing" ? (
             <>
               <div className="flex flex-wrap gap-2">

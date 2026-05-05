@@ -321,11 +321,11 @@ export function ChatInput({ onSend, isLoading, attachments, onAttachmentsChange 
   const visibleAttachments = attachments.filter((attachment) => !formulaAttachmentIds.has(attachment.id));
 
   return (
-    <div className="shrink-0 bg-background px-3 pb-3 pt-2 md:px-6 md:pb-5">
+    <div className="shrink-0 border-t bg-background/95 px-4 pb-4 pt-3 backdrop-blur md:px-8 md:pb-6">
       {isDraggingFile && (
         <div className="pointer-events-none fixed inset-0 z-[100] flex items-center justify-center bg-background/80 p-6 backdrop-blur-sm">
-          <div className="flex w-full max-w-lg flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-foreground/40 bg-card px-6 py-10 text-center shadow-lg">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-foreground">
+          <div className="flex w-full max-w-lg flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-foreground/30 bg-card px-8 py-12 text-center shadow-[var(--shadow-md)]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-[hsl(var(--terracotta))]">
               {isProcessingFiles ? (
                 <Loader2 className="h-6 w-6 animate-spin" />
               ) : (
@@ -339,11 +339,11 @@ export function ChatInput({ onSend, isLoading, attachments, onAttachmentsChange 
           </div>
         </div>
       )}
-      <div className="mx-auto w-full max-w-3xl">
+      <div className="mx-auto w-full max-w-4xl">
         <div
           className={cn(
-            "rounded-[28px] border bg-card px-3 py-3 shadow-sm transition-colors focus-within:border-muted-foreground/50",
-            isDraggingFile && "border-foreground/60 bg-accent"
+            "rounded-xl border border-border/15 bg-card px-3 py-3 shadow-[var(--shadow-sm)] transition-all focus-within:border-border/40 focus-within:shadow-[var(--shadow-md)]",
+            isDraggingFile && "border-[hsl(var(--terracotta))] bg-secondary"
           )}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
@@ -386,7 +386,7 @@ export function ChatInput({ onSend, isLoading, attachments, onAttachmentsChange 
               type="button"
               variant="ghost"
               size="icon"
-              className="h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="h-10 w-10 shrink-0 rounded-lg text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
               disabled={isLoading || isProcessingFiles || attachments.length >= MAX_ATTACHMENTS}
               onClick={() => fileInputRef.current?.click()}
               aria-label="Thêm file"
@@ -401,7 +401,7 @@ export function ChatInput({ onSend, isLoading, attachments, onAttachmentsChange 
               type="button"
               variant="ghost"
               size="icon"
-              className="h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="h-10 w-10 shrink-0 rounded-lg text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
               disabled={isLoading || isProcessingFiles}
               onClick={() => setIsFormulaStudioOpen(true)}
               aria-label="Mở Math Studio"
@@ -416,7 +416,7 @@ export function ChatInput({ onSend, isLoading, attachments, onAttachmentsChange 
               onPaste={handlePaste}
               onKeyDown={handleKeyDown}
               placeholder="Hỏi bài toán bất kỳ"
-              className="max-h-[200px] min-h-[28px] flex-1 resize-none border-0 bg-transparent px-2 py-1 text-[15px] leading-6 shadow-none placeholder:text-muted-foreground focus-visible:ring-0 md:text-[15px]"
+              className="max-h-[200px] min-h-[34px] flex-1 resize-none border-0 bg-transparent px-2 py-1 text-[15px] leading-6 shadow-none placeholder:text-muted-foreground focus-visible:border-transparent focus-visible:ring-0 md:text-[15px]"
               disabled={isLoading || isProcessingFiles}
               rows={1}
             />
@@ -431,9 +431,9 @@ export function ChatInput({ onSend, isLoading, attachments, onAttachmentsChange 
                 disabled={!canSend}
                 size="icon"
                 className={cn(
-                  "h-8 w-8 rounded-full transition-colors",
+                  "h-10 w-10 rounded-lg transition-colors",
                   canSend
-                    ? "bg-foreground text-background hover:bg-foreground/85"
+                    ? "bg-[#1F1E1D] text-white hover:bg-[#141413] dark:bg-[#FAF9F5] dark:text-[#1F1E1D]"
                     : "bg-muted text-muted-foreground"
                 )}
                 aria-label="Gửi tin nhắn"
@@ -475,7 +475,7 @@ function FormulaPreviewChip({
 }) {
   if (formula.kind === "drawing") {
     return (
-      <div className="group relative rounded-2xl border bg-muted px-3 py-2 pr-10">
+      <div className="group relative rounded-xl border border-border/15 bg-secondary px-3 py-2 pr-10">
         <img
           src={formula.imageDataUrl}
           alt="Bản vẽ công thức"
@@ -487,7 +487,7 @@ function FormulaPreviewChip({
   }
 
   return (
-    <div className="group relative rounded-2xl border bg-muted px-3 py-2 pr-10">
+    <div className="group relative rounded-xl border border-border/15 bg-secondary px-3 py-2 pr-10">
       <div
         data-font={formula.font}
         data-italic={formula.isItalic ? "on" : "off"}
@@ -509,7 +509,7 @@ function AttachmentPreview({
 }) {
   if (isImageAttachment(attachment)) {
     return (
-      <div className="group relative h-16 w-16 overflow-hidden rounded-xl border bg-muted">
+      <div className="group relative h-16 w-16 overflow-hidden rounded-xl border border-border/15 bg-secondary">
         <img
           src={attachment.dataUrl}
           alt={attachment.name}
@@ -521,8 +521,8 @@ function AttachmentPreview({
   }
 
   return (
-    <div className="group relative flex min-h-16 max-w-full items-center gap-3 rounded-xl border bg-muted px-3 py-2 pr-9 sm:max-w-[19rem]">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-background text-muted-foreground">
+    <div className="group relative flex min-h-16 max-w-full items-center gap-3 rounded-xl border border-border/15 bg-secondary px-3 py-2 pr-9 sm:max-w-[19rem]">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-card text-muted-foreground">
         {isSpreadsheetAttachment(attachment) ? (
           <Table2 className="h-4 w-4" />
         ) : (
@@ -551,7 +551,7 @@ function RemoveAttachmentButton({
     <button
       type="button"
       onClick={onRemove}
-      className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-background/90 text-foreground shadow-sm opacity-90 transition-opacity hover:opacity-100"
+      className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-border/15 bg-card text-foreground shadow-[var(--shadow-sm)] opacity-90 transition-opacity hover:opacity-100"
       aria-label={label}
     >
       <X className="h-3 w-3" />

@@ -52,7 +52,7 @@ export function Message({ message, onExport }: MessageProps) {
           className={cn(
             "group/message relative min-w-0 transition-colors",
             isUser
-              ? "max-w-[min(80%,42rem)] rounded-3xl bg-[#303030] px-4 py-2.5 text-[#f4f4f4]"
+              ? "max-w-[min(80%,42rem)] rounded-xl border border-border/10 bg-[var(--message-user-bg)] px-4 py-3 text-foreground shadow-[var(--shadow-sm)]"
               : "w-full max-w-none py-1 text-foreground"
           )}
         >
@@ -62,8 +62,8 @@ export function Message({ message, onExport }: MessageProps) {
               writeRenderedSelectionToClipboard(event.nativeEvent, contentRef.current, message.content);
             }}
             className={cn(
-              "text-[15px] leading-7",
-              isUser ? "text-[#f4f4f4]" : "text-foreground"
+              "text-[15px] leading-[1.65]",
+              isUser ? "text-foreground" : "text-foreground"
             )}
           >
             {message.attachments?.length ? (
@@ -95,14 +95,14 @@ export function Message({ message, onExport }: MessageProps) {
 
           <div
             className={cn(
-              "mt-2 flex items-center gap-1 opacity-70 transition-opacity group-hover/message:opacity-100",
+              "mt-3 flex items-center gap-1 opacity-70 transition-opacity group-hover/message:opacity-100",
               isUser ? "justify-end" : "justify-start"
             )}
           >
             <span
               className={cn(
                 "px-1 text-xs",
-                isUser ? "text-white/55" : "text-muted-foreground"
+                isUser ? "text-muted-foreground" : "text-muted-foreground"
               )}
             >
               {formatTimestamp(message.timestamp)}
@@ -114,10 +114,10 @@ export function Message({ message, onExport }: MessageProps) {
                   variant="ghost"
                   size="icon"
                   className={cn(
-                    "h-7 w-7 rounded-lg",
+                    "h-8 w-8 rounded-lg",
                     isUser
-                      ? "text-white/70 hover:bg-white/10 hover:text-white"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                      ? "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
+                      : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
                   )}
                   onClick={handleCopy}
                   disabled={isCopying}
@@ -141,7 +141,7 @@ export function Message({ message, onExport }: MessageProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+                    className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
                     onClick={handleExport}
                     aria-label="Tạo file từ nội dung này"
                   >
@@ -173,12 +173,12 @@ function ExportDocumentCard({
     <button
       type="button"
       onClick={onOpen}
-      className="mt-4 flex w-full max-w-[25rem] items-center justify-between gap-3 rounded-lg border bg-card p-3 text-left shadow-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="claude-card claude-card-hover mt-4 flex w-full max-w-[27rem] items-center justify-between gap-3 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
       aria-label="Mở lại modal xuất nội dung câu trả lời này"
     >
       <span className="flex min-w-0 items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background text-muted-foreground">
-          <FileText className="h-5 w-5" />
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-[hsl(var(--terracotta))]">
+          <FileText className="h-[18px] w-[18px]" />
         </span>
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold">
@@ -189,7 +189,7 @@ function ExportDocumentCard({
           </span>
         </span>
       </span>
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border bg-background px-3 py-1.5 text-sm text-foreground">
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/20 bg-card px-3 py-1.5 text-sm text-foreground">
         Open
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
       </span>
@@ -232,7 +232,7 @@ function MessageAttachment({
         href={attachment.dataUrl}
         target="_blank"
         rel="noreferrer"
-        className="block h-32 w-40 overflow-hidden rounded-xl border border-white/10 bg-black/10"
+        className="block h-32 w-40 overflow-hidden rounded-xl border border-border/15 bg-card shadow-[var(--shadow-sm)]"
       >
         <img
           src={attachment.dataUrl}
@@ -246,14 +246,14 @@ function MessageAttachment({
   return (
     <div
       className={cn(
-        "flex min-h-16 w-full max-w-[24rem] items-center gap-3 rounded-xl border px-3 py-2",
-        isUser ? "border-white/10 bg-white/10" : "bg-muted"
+        "flex min-h-16 w-full max-w-[24rem] items-center gap-3 rounded-xl border px-3 py-2 shadow-[var(--shadow-sm)]",
+        isUser ? "bg-card/70" : "bg-card"
       )}
     >
       <div
         className={cn(
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-          isUser ? "bg-black/10 text-white/75" : "bg-background text-muted-foreground"
+          isUser ? "bg-secondary text-muted-foreground" : "bg-secondary text-muted-foreground"
         )}
       >
         {isSpreadsheetAttachment(attachment) ? (
@@ -264,7 +264,7 @@ function MessageAttachment({
       </div>
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">{attachment.name}</p>
-        <p className={cn("truncate text-xs", isUser ? "text-white/60" : "text-muted-foreground")}>
+        <p className="truncate text-xs text-muted-foreground">
           {getDocumentAttachmentSummary(attachment)}
         </p>
       </div>

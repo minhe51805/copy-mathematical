@@ -17,19 +17,19 @@ interface MathRendererProps {
   isUser?: boolean;
 }
 
-function getMarkdownComponents(isUser: boolean): Components {
-  const subtleText = isUser ? "text-white/75" : "text-muted-foreground";
-  const border = isUser ? "border-white/15" : "border-border";
-  const mutedBg = isUser ? "bg-white/10" : "bg-muted";
+function getMarkdownComponents(): Components {
+  const subtleText = "text-muted-foreground";
+  const border = "border-border/15";
+  const mutedBg = "bg-secondary";
 
   return {
     h1: ({ children }) => (
-      <h1 className="mb-3 mt-5 text-xl font-semibold leading-tight first:mt-0">
+      <h1 className="mb-3 mt-5 text-2xl font-normal leading-tight first:mt-0">
         {children}
       </h1>
     ),
     h2: ({ children }) => (
-      <h2 className="mb-3 mt-5 text-lg font-semibold leading-tight first:mt-0">
+      <h2 className="mb-3 mt-5 text-xl font-normal leading-tight first:mt-0">
         {children}
       </h2>
     ),
@@ -68,7 +68,7 @@ function getMarkdownComponents(isUser: boolean): Components {
     ),
     thead: ({ children }) => <thead className={mutedBg}>{children}</thead>,
     tbody: ({ children }) => (
-      <tbody className={cn("divide-y", isUser ? "divide-white/10" : "divide-border")}>
+      <tbody className="divide-y divide-border/15">
         {children}
       </tbody>
     ),
@@ -86,7 +86,6 @@ function getMarkdownComponents(isUser: boolean): Components {
     pre: ({ children }) => (
       <CopyableMarkdownBlock
         fallbackText={getNodeText(children)}
-        isUser={isUser}
         label="Terminal"
         className="mb-3 last:mb-0"
         contentClassName={cn("overflow-x-auto rounded-xl p-3 text-sm", mutedBg)}
@@ -118,7 +117,7 @@ function getMarkdownComponents(isUser: boolean): Components {
         href={href}
         target="_blank"
         rel="noreferrer"
-        className={cn("underline underline-offset-2", isUser ? "text-white" : "text-foreground")}
+        className="text-[hsl(var(--terracotta))] underline underline-offset-2"
       >
         {children}
       </a>
@@ -127,19 +126,19 @@ function getMarkdownComponents(isUser: boolean): Components {
   };
 }
 
-function MarkdownContent({ content, isUser }: { content: string; isUser: boolean }) {
+function MarkdownContent({ content }: { content: string }) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm, remarkMath]}
       rehypePlugins={[rehypeKatex]}
-      components={getMarkdownComponents(isUser)}
+      components={getMarkdownComponents()}
     >
       {content}
     </ReactMarkdown>
   );
 }
 
-export function MathRenderer({ content, className, isUser = false }: MathRendererProps) {
+export function MathRenderer({ content, className }: MathRendererProps) {
   const normalizedContent = normalizeMathMarkdown(content);
   const segments = splitCopyableQuestionSections(normalizedContent);
 
@@ -150,17 +149,15 @@ export function MathRenderer({ content, className, isUser = false }: MathRendere
           <CopyableMarkdownBlock
             key={`${segment.type}-${index}`}
             fallbackText={segment.content}
-            isUser={isUser}
             label={segment.label}
             className="my-4 first:mt-0 last:mb-0"
           >
-            <MarkdownContent content={segment.content} isUser={isUser} />
+            <MarkdownContent content={segment.content} />
           </CopyableMarkdownBlock>
         ) : (
           <MarkdownContent
             key={`${segment.type}-${index}`}
             content={segment.content}
-            isUser={isUser}
           />
         )
       ))}
@@ -178,14 +175,12 @@ interface CopyableSegment {
 function CopyableMarkdownBlock({
   children,
   fallbackText,
-  isUser,
   label = "Copy block",
   className,
   contentClassName,
 }: {
   children: ReactNode;
   fallbackText: string;
-  isUser: boolean;
   label?: string;
   className?: string;
   contentClassName?: string;
@@ -210,8 +205,7 @@ function CopyableMarkdownBlock({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border",
-        isUser ? "border-white/15 bg-black/10" : "border-border bg-card",
+        "overflow-hidden rounded-xl border border-border/15 bg-card shadow-[var(--shadow-sm)]",
         className
       )}
     >
@@ -219,10 +213,10 @@ function CopyableMarkdownBlock({
         data-copy-ui="true"
         className={cn(
           "flex items-center justify-between gap-3 border-b px-3 py-2",
-          isUser ? "border-white/10 bg-white/10" : "border-border bg-muted/60"
+          "border-border/15 bg-secondary"
         )}
       >
-        <span className={cn("truncate text-xs font-medium", isUser ? "text-white/65" : "text-muted-foreground")}>
+        <span className="truncate text-xs font-medium text-muted-foreground">
           {label}
         </span>
         <Button
@@ -230,8 +224,7 @@ function CopyableMarkdownBlock({
           variant="ghost"
           size="sm"
           className={cn(
-            "h-7 px-2 text-xs",
-            isUser ? "text-white/75 hover:bg-white/10 hover:text-white" : "text-muted-foreground"
+            "h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
           )}
           onClick={handleCopy}
           disabled={isCopying}
@@ -254,7 +247,7 @@ function CopyableMarkdownBlock({
         ref={contentRef}
         className={cn(
           "px-4 py-3",
-          isUser ? "text-white" : "text-foreground",
+          "text-foreground",
           contentClassName
         )}
       >

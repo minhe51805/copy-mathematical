@@ -29,12 +29,12 @@ export default function Home() {
 
   return (
     <div className="flex h-dvh overflow-hidden bg-background text-foreground">
-      <aside className="hidden w-[260px] shrink-0 bg-[#171717] text-[#f4f4f4] md:block">
+      <aside className="hidden w-[272px] shrink-0 border-r border-white/10 bg-[hsl(var(--sidebar-bg))] text-[#FAF9F5] md:block">
         <Sidebar />
       </aside>
 
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetContent side="left" className="w-[280px] border-r-0 bg-[#171717] p-0 text-[#f4f4f4]">
+        <SheetContent side="left" className="w-[288px] border-r-0 bg-[hsl(var(--sidebar-bg))] p-0 text-[#FAF9F5]">
           <Sidebar onChatSelect={() => setSidebarOpen(false)} />
         </SheetContent>
       </Sheet>

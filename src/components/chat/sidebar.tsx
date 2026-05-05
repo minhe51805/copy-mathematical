@@ -33,46 +33,46 @@ export function Sidebar({ onChatSelect }: SidebarProps) {
   };
 
   return (
-    <div className="flex h-full flex-col bg-[#171717] text-[#f4f4f4]">
-      <div className="flex h-14 shrink-0 items-center gap-2 px-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f4f4f4] text-sm font-semibold text-[#171717]">
+    <div className="flex h-full flex-col bg-[hsl(var(--sidebar-bg))] text-[#FAF9F5]">
+      <div className="flex h-16 shrink-0 items-center gap-3 px-4">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[hsl(var(--terracotta))] text-sm font-semibold text-white shadow-[rgba(217,119,87,0.18)_0px_8px_24px]">
           ∑
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">AI Math Chat</p>
-          <p className="truncate text-xs text-[#b4b4b4]">Trợ lý toán học</p>
+          <p className="truncate text-xs text-[#FAF9F5]/65">Trợ lý toán học</p>
         </div>
       </div>
 
-      <div className="px-2 pb-2">
+      <div className="px-3 pb-3">
         <Button
           onClick={handleNewChat}
           variant="ghost"
-          className="h-10 w-full justify-start gap-2 rounded-lg border border-[#ffffff1f] bg-transparent px-3 text-sm text-[#f4f4f4] hover:bg-[#2f2f2f] hover:text-white"
+          className="h-11 w-full justify-start gap-2 rounded-[9.6px] border-white/15 bg-white/[0.03] px-3 text-sm text-[#FAF9F5] hover:border-white/25 hover:bg-white/[0.07] hover:text-white"
         >
           <Plus className="h-4 w-4" />
           <span className="truncate font-medium">Tạo cuộc trò chuyện mới</span>
         </Button>
       </div>
 
-      <ScrollArea className="flex-1 px-2">
+      <ScrollArea className="flex-1 px-3">
         <div className="space-y-1 py-2">
           {conversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-4 py-10 text-center">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[#2f2f2f]">
-                <Bot className="h-5 w-5 text-[#b4b4b4]" />
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.07]">
+                <Bot className="h-5 w-5 text-[#FAF9F5]/65" />
               </div>
-              <p className="text-sm text-[#d4d4d4]">
+              <p className="text-sm text-[#FAF9F5]/85">
                 Chưa có cuộc trò chuyện nào
               </p>
-              <p className="mt-1 text-xs text-[#8f8f8f]">
+              <p className="mt-1 text-xs text-[#FAF9F5]/50">
                 Bắt đầu bằng một câu hỏi toán học
               </p>
             </div>
           ) : (
             <>
               <div className="px-2 pb-1 pt-3">
-                <span className="text-xs font-medium uppercase text-[#8f8f8f]">
+                <span className="text-xs font-medium uppercase tracking-[0.08em] text-[#FAF9F5]/45">
                   Lịch sử
                 </span>
               </div>
@@ -80,15 +80,15 @@ export function Sidebar({ onChatSelect }: SidebarProps) {
                 <div
                   key={conv.id}
                   className={cn(
-                    "group relative flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-[#dcdcdc] transition-colors hover:bg-[#242424]",
-                    currentConversationId === conv.id && "bg-[#2f2f2f] text-white"
+                    "group relative flex cursor-pointer items-center gap-2 rounded-[9.6px] px-3 py-2.5 text-sm text-[#FAF9F5]/82 transition-colors hover:bg-white/[0.06]",
+                    currentConversationId === conv.id && "bg-[hsl(var(--sidebar-active))] text-white"
                   )}
                   onClick={() => handleSelectChat(conv.id)}
                 >
-                  <MessageSquare className="h-4 w-4 shrink-0 text-[#b4b4b4]" />
+                  <MessageSquare className="h-4 w-4 shrink-0 text-[#FAF9F5]/58" />
                   <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
                     <span className="truncate font-medium leading-snug">{conv.title}</span>
-                    <span className="text-xs text-[#8f8f8f]">
+                    <span className="text-xs text-[#FAF9F5]/45">
                       {formatTimestamp(conv.updatedAt)}
                     </span>
                   </div>
@@ -97,7 +97,7 @@ export function Sidebar({ onChatSelect }: SidebarProps) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 shrink-0 text-[#b4b4b4] opacity-0 transition-opacity hover:bg-[#3a3a3a] hover:text-white group-hover:opacity-100"
+                        className="h-8 w-8 shrink-0 text-[#FAF9F5]/58 opacity-0 transition-opacity hover:border-white/15 hover:bg-white/[0.08] hover:text-white group-hover:opacity-100"
                         onClick={(e) => {
                           e.stopPropagation();
                           deleteConversation(conv.id);
@@ -118,11 +118,11 @@ export function Sidebar({ onChatSelect }: SidebarProps) {
       </ScrollArea>
 
       {conversations.length > 0 && (
-        <div className="border-t border-[#ffffff1f] p-2">
+        <div className="border-t border-white/10 p-3">
           <Button
             onClick={clearAllConversations}
             variant="ghost"
-            className="h-10 w-full justify-start gap-2 rounded-lg px-3 text-[#b4b4b4] hover:bg-[#2f2f2f] hover:text-white"
+            className="h-10 w-full justify-start gap-2 rounded-[9.6px] px-3 text-[#FAF9F5]/62 hover:border-white/15 hover:bg-white/[0.07] hover:text-white"
           >
             <Trash2 className="h-4 w-4" />
             <span>Xóa tất cả</span>

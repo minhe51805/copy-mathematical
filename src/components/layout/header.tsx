@@ -11,12 +11,12 @@ interface HeaderProps {
 
 export function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between px-3 md:px-5">
-      <div className="flex min-w-0 items-center gap-2">
+    <header className="flex h-16 shrink-0 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:px-6">
+      <div className="flex min-w-0 items-center gap-3">
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-lg md:hidden"
+          className="h-10 w-10 rounded-lg md:hidden"
           onClick={onMenuClick}
           aria-label="Toggle sidebar"
         >
@@ -26,13 +26,16 @@ export function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
             <Menu className="h-4 w-4" />
           )}
         </Button>
-        <h1 className="truncate text-sm font-medium">AI Math Chat</h1>
-        <span className="hidden rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground sm:inline-flex">
+        <div className="min-w-0">
+          <h1 className="truncate font-sans text-[15px] font-semibold leading-5">AI Math Chat</h1>
+          <p className="hidden text-xs text-muted-foreground sm:block">Trợ lý toán học thông minh</p>
+        </div>
+        <span className="claude-badge hidden px-3 py-1 text-xs text-muted-foreground sm:inline-flex">
           {process.env.NEXT_PUBLIC_MODEL_NAME || "AI"}
         </span>
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
         <ThemeToggle />
       </div>
     </header>
