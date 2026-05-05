@@ -41,16 +41,35 @@ export async function POST(req: NextRequest) {
     if (!process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
       return NextResponse.json(
         { error: "API key not configured. Please set GEMINI_API_KEY or OPENAI_API_KEY." },
-        { status: 500, headers: corsHeaders }
+        { headers: corsHeaders }
       );
     }
 
-    const latex = shouldUseGeminiNative()
-      ? await recognizeWithGemini(imageDataUrl)
-      : await recognizeWithOpenAI(imageDataUrl);
+    let rawLatex = "";
+    try {
+      rawLatex = shouldUseGeminiNative()
+        ? await recognizeWithGemini(imageDataUrl)
+        : await recognizeWithOpenAI(imageDataUrl);
+    } catch (error) {
+      console.error("Formula recognition provider error:", error);
+      return NextResponse.json(
+        {
+          latex: "",
+          error: getRecognitionErrorMessage(error),
+        },
+        { headers: corsHeaders }
+      );
+    }
+
+    const latex = cleanupLatex(rawLatex);
 
     return NextResponse.json(
-      { latex: cleanupLatex(latex) },
+      {
+        latex,
+        warning: !latex && looksLikeModelDidNotReadImage(rawLatex)
+          ? "Model hiện tại có thể chưa hỗ trợ đọc ảnh. Hãy dùng GEMINI_API_KEY hoặc model vision như gpt-4o/gemini."
+          : undefined,
+      },
       { headers: corsHeaders }
     );
   } catch (error) {
@@ -147,11 +166,48 @@ function isValidImageDataUrl(value: unknown): value is string {
 }
 
 function cleanupLatex(value: string) {
-  return value
+  let cleaned = value
     .trim()
+    .replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, "")
+    .replace(/<thinking>[\s\S]*?(?:<\/thinking>|$)/gi, "")
     .replace(/^```(?:latex|tex)?\s*/i, "")
     .replace(/```$/i, "")
+    .replace(/^\s*(?:latex|tex)\s*:\s*/i, "")
     .replace(/^\$\$?/, "")
     .replace(/\$\$?$/, "")
     .trim();
+
+  const boxedMatch = cleaned.match(/\\boxed\{([\s\S]+)\}/);
+  if (boxedMatch?.[1]) {
+    cleaned = boxedMatch[1].trim();
+  }
+
+  if (!/[\\^_=+\-*/()[\]{}0-9a-zA-Z\u2200-\u22ff]/.test(cleaned)) {
+    return "";
+  }
+
+  return cleaned;
+}
+
+function looksLikeModelDidNotReadImage(value: string) {
+  return /no image|không có ảnh|khong co anh|haven't provided|hasn't actually provided|unreadable|blank/i
+    .test(value);
+}
+
+function getRecognitionErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (/API key|api key/i.test(message)) {
+    return "Backend chưa có API key cho nhận dạng công thức.";
+  }
+
+  if (/vision|image|multimodal|unsupported|model/i.test(message)) {
+    return "Model hiện tại không hỗ trợ đọc ảnh. Hãy dùng GEMINI_API_KEY hoặc model vision.";
+  }
+
+  if (/404/.test(message)) {
+    return "Endpoint/model nhận dạng không tồn tại trên backend hiện tại.";
+  }
+
+  return message || "Không nhận dạng được công thức.";
 }

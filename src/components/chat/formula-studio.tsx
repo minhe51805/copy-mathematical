@@ -299,16 +299,29 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
         }),
       });
 
+      const data = await response.json().catch(() => ({})) as {
+        latex?: string;
+        error?: string;
+        warning?: string;
+      };
+
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        throw new Error(data.error || `HTTP ${response.status}`);
       }
 
-      const data = await response.json() as { latex?: string };
       if (recognitionRunRef.current !== runId) return;
+
+      if (data.error) {
+        setRecognizedLatex("");
+        setRecognitionState("error");
+        setRecognitionError(data.error);
+        return;
+      }
 
       const nextLatex = data.latex?.trim() ?? "";
       setRecognizedLatex(nextLatex);
-      setRecognitionState(nextLatex ? "success" : "idle");
+      setRecognitionState(nextLatex ? "success" : data.warning ? "error" : "idle");
+      setRecognitionError(nextLatex ? null : data.warning ?? null);
     } catch (error) {
       if (recognitionRunRef.current !== runId) return;
       setRecognitionState("error");
