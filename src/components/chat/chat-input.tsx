@@ -27,9 +27,10 @@ interface ChatInputProps {
   isLoading: boolean;
 }
 
-interface FormulaChip extends FormulaInsertPayload {
+type FormulaChip = FormulaInsertPayload & {
   id: string;
-}
+  attachmentId?: string;
+};
 
 export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   const [input, setInput] = useState("");
@@ -169,7 +170,11 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     if ((!input.trim() && attachments.length === 0 && formulaChips.length === 0) || isLoading || isProcessingFiles) return;
     const contentToSend = [
       input.trim(),
-      ...formulaChips.map((formula) => formula.markdown.trim()),
+      ...formulaChips.map((formula) =>
+        formula.kind === "math"
+          ? formula.markdown.trim()
+          : "[Bản vẽ công thức được đính kèm dưới dạng ảnh.]"
+      ),
     ].filter(Boolean).join("\n\n");
 
     onSend(contentToSend, attachments);
@@ -183,6 +188,36 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   };
 
   const insertFormulaChip = (value: FormulaInsertPayload) => {
+    if (value.kind === "drawing") {
+      if (attachments.length >= MAX_ATTACHMENTS) {
+        setAttachmentError(`Tối đa ${MAX_ATTACHMENTS} file mỗi lần gửi.`);
+        return;
+      }
+
+      const attachmentId = generateId();
+      setAttachments((current) => [
+        ...current,
+        {
+          id: attachmentId,
+          name: "math-drawing.png",
+          mimeType: "image/png",
+          kind: "image",
+          dataUrl: value.imageDataUrl,
+          size: estimateDataUrlSize(value.imageDataUrl),
+        },
+      ]);
+      setFormulaChips((current) => [
+        ...current,
+        {
+          ...value,
+          id: generateId(),
+          attachmentId,
+        },
+      ]);
+      window.requestAnimationFrame(() => textareaRef.current?.focus());
+      return;
+    }
+
     setFormulaChips((current) => [
       ...current,
       {
@@ -194,7 +229,16 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   };
 
   const removeFormulaChip = (id: string) => {
-    setFormulaChips((current) => current.filter((formula) => formula.id !== id));
+    setFormulaChips((current) => {
+      const removed = current.find((formula) => formula.id === id);
+      if (removed?.kind === "drawing" && removed.attachmentId) {
+        setAttachments((attachmentsValue) =>
+          attachmentsValue.filter((attachment) => attachment.id !== removed.attachmentId)
+        );
+      }
+
+      return current.filter((formula) => formula.id !== id);
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -205,6 +249,12 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   };
 
   const canSend = (input.trim().length > 0 || attachments.length > 0 || formulaChips.length > 0) && !isLoading && !isProcessingFiles;
+  const formulaAttachmentIds = new Set(
+    formulaChips
+      .filter((formula) => formula.kind === "drawing" && formula.attachmentId)
+      .map((formula) => formula.attachmentId)
+  );
+  const visibleAttachments = attachments.filter((attachment) => !formulaAttachmentIds.has(attachment.id));
 
   return (
     <div className="shrink-0 bg-background px-3 pb-3 pt-2 md:px-6 md:pb-5">
@@ -230,9 +280,9 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
             </div>
           )}
 
-          {attachments.length > 0 && (
+          {visibleAttachments.length > 0 && (
             <div className="mb-3 flex flex-wrap gap-2 px-1">
-              {attachments.map((attachment) => (
+              {visibleAttachments.map((attachment) => (
                 <AttachmentPreview
                   key={attachment.id}
                   attachment={attachment}
@@ -342,6 +392,19 @@ function FormulaPreviewChip({
   formula: FormulaChip;
   onRemove: () => void;
 }) {
+  if (formula.kind === "drawing") {
+    return (
+      <div className="group relative rounded-2xl border bg-muted px-3 py-2 pr-10">
+        <img
+          src={formula.imageDataUrl}
+          alt="Bản vẽ công thức"
+          className="max-h-36 w-full rounded-xl bg-white object-contain"
+        />
+        <RemoveAttachmentButton onRemove={onRemove} label="Xóa bản vẽ" />
+      </div>
+    );
+  }
+
   return (
     <div className="group relative rounded-2xl border bg-muted px-3 py-2 pr-10">
       <div
@@ -445,6 +508,11 @@ function isSpreadsheetAttachment(attachment: DocumentAttachment) {
 
 function hasDraggedFile(dataTransfer: DataTransfer) {
   return Array.from(dataTransfer.items).some((item) => item.kind === "file");
+}
+
+function estimateDataUrlSize(dataUrl: string) {
+  const base64 = dataUrl.split(",")[1] ?? "";
+  return Math.round((base64.length * 3) / 4);
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {

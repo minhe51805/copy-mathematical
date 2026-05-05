@@ -1,7 +1,21 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { Braces, Check, Copy, Italic, Plus, Sigma, Type } from "lucide-react";
+import { type PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Braces,
+  Check,
+  ChevronDown,
+  Copy,
+  Eraser,
+  Italic,
+  Keyboard,
+  PenLine,
+  Plus,
+  Sigma,
+  Trash2,
+  Type,
+  Undo2,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -35,7 +49,8 @@ export type FormulaFont =
   | "system"
   | "mono";
 
-export interface FormulaInsertPayload {
+interface MathFormulaInsertPayload {
+  kind: "math";
   markdown: string;
   latex: string;
   font: FormulaFont;
@@ -43,7 +58,16 @@ export interface FormulaInsertPayload {
   isDisplay: boolean;
 }
 
+interface DrawingFormulaInsertPayload {
+  kind: "drawing";
+  imageDataUrl: string;
+}
+
+export type FormulaInsertPayload = MathFormulaInsertPayload | DrawingFormulaInsertPayload;
+
 const DEFAULT_LATEX = "\\int_0^{\\frac{\\pi}{2}} f(x)\\,dx = 0";
+const DRAWING_WIDTH = 920;
+const DRAWING_HEIGHT = 300;
 
 const FONT_OPTIONS: Array<{ value: FormulaFont; label: string }> = [
   { value: "katex", label: "KaTeX Math" },
@@ -117,18 +141,40 @@ const SYMBOL_GROUPS = [
 ];
 
 export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioProps) {
+  const [mode, setMode] = useState<"typing" | "drawing">("typing");
   const [latex, setLatex] = useState(DEFAULT_LATEX);
   const [font, setFont] = useState<FormulaFont>("katex");
+  const [isFontMenuOpen, setIsFontMenuOpen] = useState(false);
   const [isItalic, setIsItalic] = useState(true);
   const [isDisplay, setIsDisplay] = useState(true);
-  const [copied, setCopied] = useState<"rich" | "latex" | null>(null);
+  const [drawingTool, setDrawingTool] = useState<"pen" | "eraser">("pen");
+  const [penSize, setPenSize] = useState(4);
+  const [drawingHistory, setDrawingHistory] = useState<string[]>([]);
+  const [copied, setCopied] = useState<"rich" | "latex" | "drawing" | null>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawingRef = useRef(false);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
 
   const markdown = useMemo(
     () => buildFormulaMarkdown(latex, isDisplay),
     [latex, isDisplay]
   );
+
+  useEffect(() => {
+    if (open && mode === "drawing") {
+      initializeDrawingCanvas(canvasRef.current);
+    }
+  }, [open, mode]);
+
+  useEffect(() => {
+    if (!isFontMenuOpen) return;
+
+    const close = () => setIsFontMenuOpen(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [isFontMenuOpen]);
 
   const insertSnippet = (snippet: string) => {
     const editor = editorRef.current;
@@ -162,8 +208,24 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
     window.setTimeout(() => setCopied(null), 1500);
   };
 
+  const handleCopyDrawing = async () => {
+    const blob = await getDrawingBlob(canvasRef.current);
+    if (!blob) return;
+
+    if ("ClipboardItem" in window && navigator.clipboard?.write) {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "image/png": blob,
+        }),
+      ]);
+      setCopied("drawing");
+      window.setTimeout(() => setCopied(null), 1500);
+    }
+  };
+
   const handleInsert = () => {
     onInsert({
+      kind: "math",
       markdown,
       latex: latex.trim(),
       font,
@@ -173,8 +235,79 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
     onOpenChange(false);
   };
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setIsFontMenuOpen(false);
+    }
+    onOpenChange(nextOpen);
+  };
+
+  const handleInsertDrawing = () => {
+    const imageDataUrl = canvasRef.current?.toDataURL("image/png");
+    if (!imageDataUrl) return;
+
+    onInsert({
+      kind: "drawing",
+      imageDataUrl,
+    });
+    onOpenChange(false);
+  };
+
+  const beginDrawing = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    setDrawingHistory((history) => [...history.slice(-19), canvas.toDataURL("image/png")]);
+    drawingRef.current = true;
+    lastPointRef.current = getCanvasPoint(event, canvas);
+    canvas.setPointerCapture(event.pointerId);
+  };
+
+  const draw = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    const lastPoint = lastPointRef.current;
+    if (!canvas || !drawingRef.current || !lastPoint) return;
+
+    const nextPoint = getCanvasPoint(event, canvas);
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.lineWidth = drawingTool === "eraser" ? penSize * 3 : penSize;
+    context.strokeStyle = drawingTool === "eraser" ? "#ffffff" : "#111111";
+    context.beginPath();
+    context.moveTo(lastPoint.x, lastPoint.y);
+    context.lineTo(nextPoint.x, nextPoint.y);
+    context.stroke();
+    lastPointRef.current = nextPoint;
+  };
+
+  const endDrawing = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    drawingRef.current = false;
+    lastPointRef.current = null;
+    canvas?.releasePointerCapture(event.pointerId);
+  };
+
+  const undoDrawing = () => {
+    const previous = drawingHistory.at(-1);
+    if (!previous) return;
+
+    restoreDrawing(canvasRef.current, previous);
+    setDrawingHistory((history) => history.slice(0, -1));
+  };
+
+  const clearDrawing = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    setDrawingHistory((history) => [...history.slice(-19), canvas.toDataURL("image/png")]);
+    initializeDrawingCanvas(canvas);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden bg-[hsl(var(--background))] p-0 text-[hsl(var(--foreground))] sm:max-w-5xl">
         <DialogHeader className="border-b bg-[hsl(var(--background))] px-5 py-4">
           <DialogTitle className="flex items-center gap-2 text-lg">
@@ -186,33 +319,76 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-h-0 flex-1 overflow-hidden md:grid-cols-[minmax(0,1fr)_320px]">
-          <section className="flex min-h-0 flex-col border-b md:border-b-0 md:border-r">
-            <div className="border-b bg-[hsl(var(--card))] p-4">
-              <div className="mb-3 grid gap-3">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Type className="h-4 w-4 text-muted-foreground" />
-                  Font công thức
-                </div>
-                <div className="flex max-w-full gap-2 overflow-x-auto rounded-xl border bg-background p-1">
-                  {FONT_OPTIONS.map((option) => (
+        <div className="border-b bg-[hsl(var(--card))] px-5 py-3">
+          <div className="inline-flex rounded-xl border bg-background p-1">
+            <button
+              type="button"
+              onClick={() => setMode("typing")}
+              className={cn(
+                "flex h-8 items-center gap-2 rounded-lg px-3 text-sm transition-colors",
+                mode === "typing" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
+            >
+              <Keyboard className="h-4 w-4" />
+              Soạn công thức
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("drawing")}
+              className={cn(
+                "flex h-8 items-center gap-2 rounded-lg px-3 text-sm transition-colors",
+                mode === "drawing" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
+            >
+              <PenLine className="h-4 w-4" />
+              Vẽ tay
+            </button>
+          </div>
+        </div>
+
+        {mode === "typing" ? (
+          <div className="grid min-h-0 flex-1 overflow-hidden md:grid-cols-[minmax(0,1fr)_320px]">
+            <section className="flex min-h-0 flex-col border-b md:border-b-0 md:border-r">
+              <div className="border-b bg-[hsl(var(--card))] p-4">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <div className="relative min-w-[15rem]" onClick={(event) => event.stopPropagation()}>
                     <button
-                      key={option.value}
                       type="button"
-                      onClick={() => setFont(option.value)}
-                      className={cn(
-                        "h-8 shrink-0 rounded-lg px-3 text-sm transition-colors",
-                        font === option.value
-                          ? "bg-foreground text-background"
-                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                      )}
-                      aria-pressed={font === option.value}
+                      onClick={() => setIsFontMenuOpen((value) => !value)}
+                      className="flex h-10 w-full items-center justify-between gap-3 rounded-xl border bg-background px-3 text-left text-sm text-foreground shadow-sm transition-colors hover:bg-accent"
+                      aria-label="Chọn font công thức"
+                      aria-expanded={isFontMenuOpen}
                     >
-                      {option.label}
+                      <span className="flex min-w-0 items-center gap-2">
+                        <Type className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{getFontLabel(font)}</span>
+                      </span>
+                      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                     </button>
-                  ))}
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
+                    {isFontMenuOpen && (
+                      <div className="absolute left-0 top-11 z-50 max-h-72 w-full overflow-y-auto rounded-xl border bg-popover p-1 text-popover-foreground shadow-lg">
+                        {FONT_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => {
+                              setFont(option.value);
+                              setIsFontMenuOpen(false);
+                            }}
+                            className={cn(
+                              "flex h-9 w-full items-center rounded-lg px-3 text-left text-sm transition-colors",
+                              font === option.value
+                                ? "bg-accent text-accent-foreground"
+                                : "text-popover-foreground hover:bg-accent hover:text-accent-foreground"
+                            )}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <Button
                     type="button"
                     variant={isItalic ? "default" : "outline"}
@@ -235,81 +411,155 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
                     {isDisplay ? "Block" : "Inline"}
                   </Button>
                 </div>
+
+                <Textarea
+                  ref={editorRef}
+                  value={latex}
+                  onChange={(event) => setLatex(event.target.value)}
+                  spellCheck={false}
+                  className="min-h-32 resize-none font-mono text-sm leading-6"
+                />
               </div>
 
-              <Textarea
-                ref={editorRef}
-                value={latex}
-                onChange={(event) => setLatex(event.target.value)}
-                spellCheck={false}
-                className="min-h-32 resize-none font-mono text-sm leading-6"
-              />
-            </div>
+              <div className="min-h-0 flex-1 overflow-y-auto bg-[hsl(var(--background))] p-4">
+                <div
+                  ref={previewRef}
+                  data-font={font}
+                  data-italic={isItalic ? "on" : "off"}
+                  className={cn(
+                    "formula-studio-preview min-h-40 select-text rounded-xl border bg-[hsl(var(--card))] p-5",
+                    "text-[17px] leading-8"
+                  )}
+                  onCopy={(event) => {
+                    writeRenderedSelectionToClipboard(event.nativeEvent, previewRef.current, markdown);
+                  }}
+                >
+                  <MathRenderer content={markdown} />
+                </div>
+              </div>
+            </section>
 
-            <div className="min-h-0 flex-1 overflow-y-auto bg-[hsl(var(--background))] p-4">
-              <div
-                ref={previewRef}
-                data-font={font}
-                data-italic={isItalic ? "on" : "off"}
-                className={cn(
-                  "formula-studio-preview min-h-40 select-text rounded-xl border bg-[hsl(var(--card))] p-5",
-                  "text-[17px] leading-8"
-                )}
-                onCopy={(event) => {
-                  writeRenderedSelectionToClipboard(event.nativeEvent, previewRef.current, markdown);
-                }}
+            <aside className="min-h-0 overflow-y-auto bg-[hsl(var(--card))] p-4">
+              <div className="grid gap-4">
+                {SYMBOL_GROUPS.map((group) => {
+                  const Icon = group.icon;
+                  return (
+                    <section key={group.label}>
+                      <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                        {group.label}
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {group.items.map((item) => (
+                          <button
+                            key={`${group.label}-${item.label}`}
+                            type="button"
+                            title={item.label}
+                            aria-label={item.label}
+                            onClick={() => insertSnippet(item.value)}
+                            className="flex h-10 items-center justify-center rounded-lg border bg-background px-2 text-sm font-medium transition-colors hover:bg-accent"
+                          >
+                            {item.display}
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            </aside>
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[hsl(var(--background))]">
+            <div className="flex flex-wrap items-center gap-2 border-b bg-[hsl(var(--card))] p-4">
+              <Button
+                type="button"
+                variant={drawingTool === "pen" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setDrawingTool("pen")}
               >
-                <MathRenderer content={markdown} />
-              </div>
+                <PenLine className="h-4 w-4" />
+                Bút
+              </Button>
+              <Button
+                type="button"
+                variant={drawingTool === "eraser" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setDrawingTool("eraser")}
+              >
+                <Eraser className="h-4 w-4" />
+                Tẩy
+              </Button>
+              <label className="flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 text-sm">
+                Nét
+                <input
+                  type="range"
+                  min="2"
+                  max="12"
+                  value={penSize}
+                  onChange={(event) => setPenSize(Number(event.target.value))}
+                  className="w-24"
+                />
+              </label>
+              <Button type="button" variant="outline" size="sm" onClick={undoDrawing} disabled={!drawingHistory.length}>
+                <Undo2 className="h-4 w-4" />
+                Undo
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={clearDrawing}>
+                <Trash2 className="h-4 w-4" />
+                Xóa
+              </Button>
             </div>
-          </section>
 
-          <aside className="min-h-0 overflow-y-auto bg-[hsl(var(--card))] p-4">
-            <div className="grid gap-4">
-              {SYMBOL_GROUPS.map((group) => {
-                const Icon = group.icon;
-                return (
-                  <section key={group.label}>
-                    <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-                      <Icon className="h-4 w-4 text-muted-foreground" />
-                      {group.label}
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {group.items.map((item) => (
-                        <button
-                          key={`${group.label}-${item.label}`}
-                          type="button"
-                          title={item.label}
-                          aria-label={item.label}
-                          onClick={() => insertSnippet(item.value)}
-                          className="flex h-10 items-center justify-center rounded-lg border bg-background px-2 text-sm font-medium transition-colors hover:bg-accent"
-                        >
-                          {item.display}
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                );
-              })}
+            <div className="min-h-0 flex-1 overflow-auto p-4">
+              <canvas
+                ref={canvasRef}
+                width={DRAWING_WIDTH}
+                height={DRAWING_HEIGHT}
+                className="block h-[300px] w-full touch-none rounded-2xl border bg-white shadow-sm"
+                onPointerDown={beginDrawing}
+                onPointerMove={draw}
+                onPointerUp={endDrawing}
+                onPointerCancel={endDrawing}
+                aria-label="Bảng vẽ công thức"
+              />
+              <p className="mt-3 text-sm text-muted-foreground">
+                Vẽ công thức bằng chuột hoặc bút cảm ứng. Khi chèn vào chat, bản vẽ sẽ được gửi như ảnh để AI có thể đọc.
+              </p>
             </div>
-          </aside>
-        </div>
+          </div>
+        )}
 
         <DialogFooter className="gap-2 border-t bg-[hsl(var(--background))] px-5 py-4 sm:justify-between">
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={handleCopyLatex}>
-              {copied === "latex" ? <Check className="mr-2 h-4 w-4 text-green-500" /> : <Copy className="mr-2 h-4 w-4" />}
-              Copy LaTeX
-            </Button>
-            <Button type="button" variant="outline" onClick={handleCopyRich}>
-              {copied === "rich" ? <Check className="mr-2 h-4 w-4 text-green-500" /> : <Copy className="mr-2 h-4 w-4" />}
-              Copy đẹp
-            </Button>
-          </div>
-          <Button type="button" onClick={handleInsert}>
-            <Plus className="mr-2 h-4 w-4" />
-            Chèn vào chat
-          </Button>
+          {mode === "typing" ? (
+            <>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" onClick={handleCopyLatex}>
+                  {copied === "latex" ? <Check className="mr-2 h-4 w-4 text-green-500" /> : <Copy className="mr-2 h-4 w-4" />}
+                  Copy LaTeX
+                </Button>
+                <Button type="button" variant="outline" onClick={handleCopyRich}>
+                  {copied === "rich" ? <Check className="mr-2 h-4 w-4 text-green-500" /> : <Copy className="mr-2 h-4 w-4" />}
+                  Copy đẹp
+                </Button>
+              </div>
+              <Button type="button" onClick={handleInsert}>
+                <Plus className="mr-2 h-4 w-4" />
+                Chèn vào chat
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button type="button" variant="outline" onClick={handleCopyDrawing}>
+                {copied === "drawing" ? <Check className="mr-2 h-4 w-4 text-green-500" /> : <Copy className="mr-2 h-4 w-4" />}
+                Copy ảnh
+              </Button>
+              <Button type="button" onClick={handleInsertDrawing}>
+                <Plus className="mr-2 h-4 w-4" />
+                Chèn bản vẽ
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -319,4 +569,51 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
 function buildFormulaMarkdown(latex: string, isDisplay: boolean) {
   const source = latex.trim() || "\\square";
   return isDisplay ? `\n$$\n${source}\n$$\n` : `$${source}$`;
+}
+
+function getFontLabel(font: FormulaFont) {
+  return FONT_OPTIONS.find((option) => option.value === font)?.label ?? "KaTeX Math";
+}
+
+function initializeDrawingCanvas(canvas: HTMLCanvasElement | null) {
+  const context = canvas?.getContext("2d");
+  if (!canvas || !context) return;
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = "#111111";
+  context.lineCap = "round";
+  context.lineJoin = "round";
+}
+
+function getCanvasPoint(event: ReactPointerEvent<HTMLCanvasElement>, canvas: HTMLCanvasElement) {
+  const rect = canvas.getBoundingClientRect();
+
+  return {
+    x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+    y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+  };
+}
+
+function restoreDrawing(canvas: HTMLCanvasElement | null, dataUrl: string) {
+  const context = canvas?.getContext("2d");
+  if (!canvas || !context) return;
+
+  const image = new Image();
+  image.onload = () => {
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  };
+  image.src = dataUrl;
+}
+
+function getDrawingBlob(canvas: HTMLCanvasElement | null) {
+  return new Promise<Blob | null>((resolve) => {
+    if (!canvas) {
+      resolve(null);
+      return;
+    }
+
+    canvas.toBlob((blob) => resolve(blob), "image/png");
+  });
 }
