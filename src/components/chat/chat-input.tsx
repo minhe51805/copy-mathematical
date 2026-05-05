@@ -21,6 +21,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -42,13 +43,16 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     };
   }, []);
 
-  const handleFiles = async (files: FileList | null) => {
-    if (!files?.length) return;
+  const handleFiles = async (files: Iterable<File> | FileList | null) => {
+    if (!files) return;
+
+    const fileList = Array.from(files);
+    if (!fileList.length) return;
 
     setAttachmentError(null);
     const nextAttachments: ImageAttachment[] = [];
 
-    for (const file of Array.from(files)) {
+    for (const file of fileList) {
       if (!file.type.startsWith("image/")) {
         setAttachmentError("Chỉ hỗ trợ file ảnh.");
         continue;
@@ -67,7 +71,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
       const dataUrl = await readFileAsDataUrl(file);
       nextAttachments.push({
         id: generateId(),
-        name: file.name,
+        name: file.name || "clipboard-image.png",
         mimeType: file.type,
         dataUrl,
         size: file.size,
@@ -76,10 +80,41 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
 
     if (nextAttachments.length) {
       setAttachments((current) => [...current, ...nextAttachments].slice(0, MAX_IMAGES));
+      textareaRef.current?.focus();
     }
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  };
+
+  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const imageFiles = Array.from(event.clipboardData.files).filter((file) =>
+      file.type.startsWith("image/")
+    );
+
+    if (!imageFiles.length) return;
+
+    event.preventDefault();
+    void handleFiles(imageFiles);
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDraggingImage(false);
+    void handleFiles(event.dataTransfer.files);
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    if (hasDraggedImage(event.dataTransfer)) {
+      event.preventDefault();
+      setIsDraggingImage(true);
+    }
+  };
+
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsDraggingImage(false);
     }
   };
 
@@ -110,7 +145,15 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   return (
     <div className="shrink-0 bg-background px-3 pb-3 pt-2 md:px-6 md:pb-5">
       <div className="mx-auto w-full max-w-3xl">
-        <div className="rounded-[28px] border bg-card px-3 py-3 shadow-sm transition-colors focus-within:border-muted-foreground/50">
+        <div
+          className={cn(
+            "rounded-[28px] border bg-card px-3 py-3 shadow-sm transition-colors focus-within:border-muted-foreground/50",
+            isDraggingImage && "border-foreground/60 bg-accent"
+          )}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+        >
           {attachments.length > 0 && (
             <div className="mb-3 flex flex-wrap gap-2 px-1">
               {attachments.map((attachment) => (
@@ -160,6 +203,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onPaste={handlePaste}
               onKeyDown={handleKeyDown}
               placeholder="Hỏi bài toán bất kỳ"
               className="max-h-[200px] min-h-[28px] flex-1 resize-none border-0 bg-transparent px-2 py-1 text-[15px] leading-6 shadow-none placeholder:text-muted-foreground focus-visible:ring-0 md:text-[15px]"
@@ -200,11 +244,15 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
           )}
         </div>
         <p className="mt-2 text-center text-xs text-muted-foreground">
-          AI có thể mắc lỗi. Hãy kiểm tra kết quả quan trọng.
+          Dán ảnh bằng Ctrl+V hoặc kéo ảnh vào khung chat.
         </p>
       </div>
     </div>
   );
+}
+
+function hasDraggedImage(dataTransfer: DataTransfer) {
+  return Array.from(dataTransfer.items).some((item) => item.type.startsWith("image/"));
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {
