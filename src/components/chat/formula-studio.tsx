@@ -9,8 +9,10 @@ import {
   Eraser,
   Italic,
   Keyboard,
+  Loader2,
   PenLine,
   Plus,
+  Sparkles,
   Sigma,
   Trash2,
   Type,
@@ -27,6 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { copyRenderedContent, writeRenderedSelectionToClipboard } from "@/lib/clipboard";
+import { getApiUrl, hasRuntimeApi } from "@/lib/api-url";
 import { cn } from "@/lib/utils";
 import { MathRenderer } from "./math-renderer";
 
@@ -68,6 +71,7 @@ export type FormulaInsertPayload = MathFormulaInsertPayload | DrawingFormulaInse
 const DEFAULT_LATEX = "\\int_0^{\\frac{\\pi}{2}} f(x)\\,dx = 0";
 const DRAWING_WIDTH = 920;
 const DRAWING_HEIGHT = 300;
+const RECOGNITION_DEBOUNCE_MS = 850;
 
 const FONT_OPTIONS: Array<{ value: FormulaFont; label: string }> = [
   { value: "katex", label: "KaTeX Math" },
@@ -150,12 +154,17 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
   const [drawingTool, setDrawingTool] = useState<"pen" | "eraser">("pen");
   const [penSize, setPenSize] = useState(4);
   const [drawingHistory, setDrawingHistory] = useState<string[]>([]);
+  const [recognizedLatex, setRecognizedLatex] = useState("");
+  const [recognitionState, setRecognitionState] = useState<"idle" | "waiting" | "loading" | "success" | "error" | "unavailable">("idle");
+  const [recognitionError, setRecognitionError] = useState<string | null>(null);
   const [copied, setCopied] = useState<"rich" | "latex" | "drawing" | null>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const recognitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recognitionRunRef = useRef(0);
 
   const markdown = useMemo(
     () => buildFormulaMarkdown(latex, isDisplay),
@@ -175,6 +184,14 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
   }, [isFontMenuOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (recognitionTimeoutRef.current) {
+        clearTimeout(recognitionTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const insertSnippet = (snippet: string) => {
     const editor = editorRef.current;
@@ -253,6 +270,83 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
     onOpenChange(false);
   };
 
+  const recognizeDrawing = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !hasVisibleDrawing(canvas)) {
+      setRecognizedLatex("");
+      setRecognitionError(null);
+      setRecognitionState("idle");
+      return;
+    }
+
+    if (!hasRuntimeApi()) {
+      setRecognitionState("unavailable");
+      setRecognitionError("Live nhận dạng cần backend đang chạy.");
+      return;
+    }
+
+    const runId = recognitionRunRef.current + 1;
+    recognitionRunRef.current = runId;
+    setRecognitionState("loading");
+    setRecognitionError(null);
+
+    try {
+      const response = await fetch(getApiUrl("/api/recognize-formula"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageDataUrl: canvas.toDataURL("image/png"),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json() as { latex?: string };
+      if (recognitionRunRef.current !== runId) return;
+
+      const nextLatex = data.latex?.trim() ?? "";
+      setRecognizedLatex(nextLatex);
+      setRecognitionState(nextLatex ? "success" : "idle");
+    } catch (error) {
+      if (recognitionRunRef.current !== runId) return;
+      setRecognitionState("error");
+      setRecognitionError(error instanceof Error ? error.message : "Không nhận dạng được.");
+    }
+  };
+
+  const scheduleDrawingRecognition = (delay = RECOGNITION_DEBOUNCE_MS, assumeHasDrawing = false) => {
+    if (recognitionTimeoutRef.current) {
+      clearTimeout(recognitionTimeoutRef.current);
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas || (!assumeHasDrawing && !hasVisibleDrawing(canvas))) {
+      setRecognizedLatex("");
+      setRecognitionError(null);
+      setRecognitionState("idle");
+      return;
+    }
+
+    if (!hasRuntimeApi()) {
+      setRecognitionState("unavailable");
+      setRecognitionError("Live nhận dạng cần Vercel/backend API.");
+      return;
+    }
+
+    setRecognitionState("waiting");
+    recognitionTimeoutRef.current = setTimeout(() => {
+      void recognizeDrawing();
+    }, delay);
+  };
+
+  const useRecognizedFormula = () => {
+    if (!recognizedLatex.trim()) return;
+    setLatex(recognizedLatex);
+    setMode("typing");
+  };
+
   const beginDrawing = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -281,6 +375,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
     context.lineTo(nextPoint.x, nextPoint.y);
     context.stroke();
     lastPointRef.current = nextPoint;
+    scheduleDrawingRecognition(RECOGNITION_DEBOUNCE_MS, true);
   };
 
   const endDrawing = (event: ReactPointerEvent<HTMLCanvasElement>) => {
@@ -296,6 +391,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
 
     restoreDrawing(canvasRef.current, previous);
     setDrawingHistory((history) => history.slice(0, -1));
+    window.setTimeout(() => scheduleDrawingRecognition(150), 80);
   };
 
   const clearDrawing = () => {
@@ -304,6 +400,9 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
 
     setDrawingHistory((history) => [...history.slice(-19), canvas.toDataURL("image/png")]);
     initializeDrawingCanvas(canvas);
+    setRecognizedLatex("");
+    setRecognitionError(null);
+    setRecognitionState("idle");
   };
 
   return (
@@ -471,44 +570,85 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[hsl(var(--background))]">
-            <div className="flex flex-wrap items-center gap-2 border-b bg-[hsl(var(--card))] p-4">
-              <Button
-                type="button"
-                variant={drawingTool === "pen" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setDrawingTool("pen")}
-              >
-                <PenLine className="h-4 w-4" />
-                Bút
-              </Button>
-              <Button
-                type="button"
-                variant={drawingTool === "eraser" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setDrawingTool("eraser")}
-              >
-                <Eraser className="h-4 w-4" />
-                Tẩy
-              </Button>
-              <label className="flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 text-sm">
-                Nét
-                <input
-                  type="range"
-                  min="2"
-                  max="12"
-                  value={penSize}
-                  onChange={(event) => setPenSize(Number(event.target.value))}
-                  className="w-24"
-                />
-              </label>
-              <Button type="button" variant="outline" size="sm" onClick={undoDrawing} disabled={!drawingHistory.length}>
-                <Undo2 className="h-4 w-4" />
-                Undo
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={clearDrawing}>
-                <Trash2 className="h-4 w-4" />
-                Xóa
-              </Button>
+            <div className="grid gap-3 border-b bg-[hsl(var(--card))] p-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant={drawingTool === "pen" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDrawingTool("pen")}
+                >
+                  <PenLine className="h-4 w-4" />
+                  Bút
+                </Button>
+                <Button
+                  type="button"
+                  variant={drawingTool === "eraser" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDrawingTool("eraser")}
+                >
+                  <Eraser className="h-4 w-4" />
+                  Tẩy
+                </Button>
+                <label className="flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 text-sm">
+                  Nét
+                  <input
+                    type="range"
+                    min="2"
+                    max="12"
+                    value={penSize}
+                    onChange={(event) => setPenSize(Number(event.target.value))}
+                    className="w-24"
+                  />
+                </label>
+                <Button type="button" variant="outline" size="sm" onClick={undoDrawing} disabled={!drawingHistory.length}>
+                  <Undo2 className="h-4 w-4" />
+                  Undo
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={clearDrawing}>
+                  <Trash2 className="h-4 w-4" />
+                  Xóa
+                </Button>
+              </div>
+
+              <div className="min-h-20 rounded-xl border bg-background p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Kết quả nhận dạng
+                  </span>
+                  {recognizedLatex && (
+                    <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={useRecognizedFormula}>
+                      Dùng
+                    </Button>
+                  )}
+                </div>
+                <div className="min-h-8 text-sm">
+                  {recognitionState === "waiting" && (
+                    <span className="text-muted-foreground">Đợi nét vẽ ổn định...</span>
+                  )}
+                  {recognitionState === "loading" && (
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Đang nhận dạng...
+                    </span>
+                  )}
+                  {recognitionState === "success" && recognizedLatex && (
+                    <div className="max-h-24 overflow-y-auto">
+                      <MathRenderer content={`$${recognizedLatex}$`} />
+                    </div>
+                  )}
+                  {recognitionState === "error" && (
+                    <span className="text-destructive">{recognitionError ?? "Không nhận dạng được."}</span>
+                  )}
+                  {recognitionState === "unavailable" && (
+                    <span className="text-muted-foreground">{recognitionError}</span>
+                  )}
+                  {recognitionState === "idle" && !recognizedLatex && (
+                    <span className="text-muted-foreground">Vẽ công thức để app tự nhận.</span>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="min-h-0 flex-1 overflow-auto p-4">
@@ -605,6 +745,26 @@ function restoreDrawing(canvas: HTMLCanvasElement | null, dataUrl: string) {
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
   };
   image.src = dataUrl;
+}
+
+function hasVisibleDrawing(canvas: HTMLCanvasElement) {
+  const context = canvas.getContext("2d");
+  if (!context) return false;
+
+  const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+
+  for (let index = 0; index < data.length; index += 16) {
+    const red = data[index];
+    const green = data[index + 1];
+    const blue = data[index + 2];
+    const alpha = data[index + 3];
+
+    if (alpha > 0 && (red < 245 || green < 245 || blue < 245)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function getDrawingBlob(canvas: HTMLCanvasElement | null) {
