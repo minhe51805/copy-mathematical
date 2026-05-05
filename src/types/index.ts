@@ -22,11 +22,17 @@ export type DocumentAttachment = {
 
 export type ChatAttachment = ImageAttachment | DocumentAttachment;
 
+export type MessageExportSource = {
+  content: string;
+  request?: string | null;
+};
+
 export type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
   attachments?: ChatAttachment[];
+  exportSource?: MessageExportSource;
   timestamp: number;
 };
 
@@ -45,6 +51,7 @@ export interface ChatStore {
   isLoading: boolean;
   addMessage: (message: Message) => void;
   updateMessage: (id: string, content: string) => void;
+  setMessageExportSource: (id: string, exportSource: MessageExportSource) => void;
   removeAttachment: (attachmentId: string) => void;
   clearMessages: () => void;
   setLoading: (loading: boolean) => void;

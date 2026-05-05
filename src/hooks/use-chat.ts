@@ -7,12 +7,14 @@ import {
   getDefaultPromptForAttachments,
 } from "@/lib/attachment-content";
 import { getApiUrl, hasRuntimeApi } from "@/lib/api-url";
+import { isExportOnlyRequest } from "@/lib/export-drafts";
 import { generateId, sanitizeAssistantContent } from "@/lib/math-utils";
 import type { ChatAttachment } from "@/types";
 
 interface SendMessageOptions {
   onError?: (error: string) => void;
   onFinish?: (result: {
+    assistantMessageId: string;
     assistantContent: string;
     previousAssistantContent: string | null;
     userMessage: string;
@@ -39,10 +41,13 @@ export function useChat(options?: SendMessageOptions) {
       const hasAttachments = attachments.length > 0;
       if ((!trimmedContent && !hasAttachments) || isLoading) return;
 
+      const previousAssistantMessage = [...messages].reverse().find((message) =>
+        message.role === "assistant" && (message.exportSource?.content.trim() || message.content.trim())
+      );
       const previousAssistantContent =
-        [...messages].reverse().find((message) =>
-          message.role === "assistant" && message.content.trim()
-        )?.content ?? null;
+        previousAssistantMessage?.exportSource?.content
+        ?? previousAssistantMessage?.content
+        ?? null;
 
       const userMessage = {
         id: generateId(),
@@ -53,21 +58,48 @@ export function useChat(options?: SendMessageOptions) {
       };
 
       addMessage(userMessage);
+
+      if (!hasAttachments && previousAssistantContent?.trim() && isExportOnlyRequest(userMessage.content)) {
+        const assistantMessageId = generateId();
+        const assistantContent = "Mình đã chuẩn bị nội dung để xuất file. Bạn có thể mở lại modal xuất bằng thẻ bên dưới.";
+        addMessage({
+          id: assistantMessageId,
+          role: "assistant",
+          content: assistantContent,
+          exportSource: {
+            content: previousAssistantContent,
+            request: userMessage.content,
+          },
+          timestamp: Date.now(),
+        });
+        saveConversation();
+        onFinish?.({
+          assistantMessageId,
+          assistantContent,
+          previousAssistantContent,
+          userMessage: userMessage.content,
+          attachments,
+        });
+        return;
+      }
+
       setLoading(true);
 
       try {
         const localDocumentResponse = buildLocalDocumentCopyResponse(userMessage.content, attachments);
 
         if (localDocumentResponse) {
+          const assistantMessageId = generateId();
           const assistantContent = sanitizeAssistantContent(localDocumentResponse);
           addMessage({
-            id: generateId(),
+            id: assistantMessageId,
             role: "assistant",
             content: assistantContent,
             timestamp: Date.now(),
           });
           saveConversation();
           onFinish?.({
+            assistantMessageId,
             assistantContent,
             previousAssistantContent,
             userMessage: userMessage.content,
@@ -131,6 +163,7 @@ export function useChat(options?: SendMessageOptions) {
 
         saveConversation();
         onFinish?.({
+          assistantMessageId,
           assistantContent: visibleAssistantContent,
           previousAssistantContent,
           userMessage: userMessage.content,

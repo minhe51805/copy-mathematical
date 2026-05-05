@@ -12,7 +12,7 @@ import { Message } from "./message";
 interface MessageListProps {
   messages: MessageType[];
   isLoading: boolean;
-  onExport?: (content: string) => void;
+  onExport?: (content: string, request?: string | null) => void;
 }
 
 const SUGGESTIONS = [

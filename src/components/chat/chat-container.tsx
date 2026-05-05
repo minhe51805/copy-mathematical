@@ -13,10 +13,11 @@ import { ChatInput } from "./chat-input";
 
 interface ExportSource {
   content: string;
-  request?: string;
+  request?: string | null;
 }
 
 interface ChatFinishResult {
+  assistantMessageId: string;
   assistantContent: string;
   previousAssistantContent: string | null;
   userMessage: string;
@@ -27,9 +28,10 @@ export function ChatContainer() {
   const [exportSource, setExportSource] = useState<ExportSource | null>(null);
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
   const removeAttachment = useChatStore((state) => state.removeAttachment);
+  const setMessageExportSource = useChatStore((state) => state.setMessageExportSource);
 
   const handleFinish = useCallback(
-    ({ assistantContent, previousAssistantContent, userMessage, attachments }: ChatFinishResult) => {
+    ({ assistantMessageId, assistantContent, previousAssistantContent, userMessage, attachments }: ChatFinishResult) => {
       if (!isExportRequest(userMessage)) return;
 
       const fullDocumentCopy = isFullCopyRequest(userMessage)
@@ -41,13 +43,15 @@ export function ChatContainer() {
         : fullDocumentCopy ?? assistantContent;
 
       if (contentToExport?.trim()) {
-        setExportSource({
+        const nextExportSource = {
           content: contentToExport,
           request: userMessage,
-        });
+        };
+        setMessageExportSource(assistantMessageId, nextExportSource);
+        setExportSource(nextExportSource);
       }
     },
-    []
+    [setMessageExportSource]
   );
 
   const { messages, isLoading, sendMessage } = useChat({ onFinish: handleFinish });
@@ -65,8 +69,8 @@ export function ChatContainer() {
     [messages]
   );
 
-  const handleExport = (content: string) => {
-    setExportSource({ content });
+  const handleExport = (content: string, request?: string | null) => {
+    setExportSource({ content, request });
   };
 
   return (
