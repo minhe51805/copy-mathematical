@@ -94,6 +94,36 @@
   font-size: 1.1em;
 }
 
+.formula-studio-preview[data-font="cambria"] .katex,
+.formula-studio-preview[data-font="cambria"] .katex * {
+  font-family: "Cambria Math", Cambria, "Times New Roman", serif !important;
+}
+
+.formula-studio-preview[data-font="times"] .katex,
+.formula-studio-preview[data-font="times"] .katex * {
+  font-family: "Times New Roman", Times, serif !important;
+}
+
+.formula-studio-preview[data-font="arial"] .katex,
+.formula-studio-preview[data-font="arial"] .katex * {
+  font-family: Arial, Helvetica, sans-serif !important;
+}
+
+.formula-studio-preview[data-font="mono"] .katex,
+.formula-studio-preview[data-font="mono"] .katex * {
+  font-family: Consolas, "Courier New", monospace !important;
+}
+
+.formula-studio-preview[data-italic="off"] .katex,
+.formula-studio-preview[data-italic="off"] .katex * {
+  font-style: normal !important;
+}
+
+.formula-studio-preview[data-italic="on"] .katex .mathnormal,
+.formula-studio-preview[data-italic="on"] .katex .mord.mathnormal {
+  font-style: italic !important;
+}
+
 /* Custom scrollbar - chatgpt style */
 ::-webkit-scrollbar {
   width: 6px;

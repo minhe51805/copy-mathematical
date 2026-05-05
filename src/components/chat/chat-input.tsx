@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, FileText, Loader2, Paperclip, Table2, X } from "lucide-react";
+import { ArrowUp, FileText, Loader2, Paperclip, Sigma, Table2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -19,6 +19,7 @@ import {
 import { generateId } from "@/lib/math-utils";
 import { cn } from "@/lib/utils";
 import type { ChatAttachment, DocumentAttachment, ImageAttachment } from "@/types";
+import { FormulaStudio } from "./formula-studio";
 
 interface ChatInputProps {
   onSend: (message: string, attachments?: ChatAttachment[]) => void;
@@ -31,6 +32,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [isProcessingFiles, setIsProcessingFiles] = useState(false);
+  const [isFormulaStudioOpen, setIsFormulaStudioOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -168,6 +170,31 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     }
   };
 
+  const insertTextAtCursor = (value: string) => {
+    const textarea = textareaRef.current;
+
+    setInput((current) => {
+      if (!textarea) return `${current}${value}`;
+
+      const start = textarea.selectionStart ?? current.length;
+      const end = textarea.selectionEnd ?? current.length;
+      const prefix = current.slice(0, start);
+      const suffix = current.slice(end);
+      const next = `${prefix}${prefix && !prefix.endsWith("\n") ? "\n" : ""}${value}${suffix ? "\n" : ""}${suffix}`;
+      const cursor = next.length - suffix.length - (suffix ? 1 : 0);
+
+      window.requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.selectionStart = cursor;
+        textarea.selectionEnd = cursor;
+        textarea.style.height = "auto";
+        textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+      });
+
+      return next;
+    });
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -225,6 +252,18 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
                 <Paperclip className="h-4 w-4" />
               )}
             </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
+              disabled={isLoading || isProcessingFiles}
+              onClick={() => setIsFormulaStudioOpen(true)}
+              aria-label="Mở Math Studio"
+              title="Math Studio"
+            >
+              <Sigma className="h-4 w-4" />
+            </Button>
             <Textarea
               ref={textareaRef}
               value={input}
@@ -273,6 +312,11 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
           Dán hoặc kéo ảnh, PDF, DOCX, Excel (.xlsx) hoặc CSV vào khung chat.
         </p>
       </div>
+      <FormulaStudio
+        open={isFormulaStudioOpen}
+        onOpenChange={setIsFormulaStudioOpen}
+        onInsert={insertTextAtCursor}
+      />
     </div>
   );
 }

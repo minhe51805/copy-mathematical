@@ -151,6 +151,32 @@ export async function copyRenderedContent(element: HTMLElement | null, fallbackM
   }
 }
 
+export function writeRenderedSelectionToClipboard(
+  event: ClipboardEvent,
+  root: HTMLElement | null,
+  fallbackMarkdown: string
+) {
+  if (!root || !event.clipboardData) return false;
+
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || !isSelectionInside(root, selection)) {
+    return false;
+  }
+
+  const container = document.createElement("div");
+  for (let index = 0; index < selection.rangeCount; index += 1) {
+    container.append(selection.getRangeAt(index).cloneContents());
+  }
+
+  const html = createClipboardHtml(container);
+  const plainText = cleanupPlainText(selection.toString()) || stripMarkdown(normalizeMathMarkdown(fallbackMarkdown));
+
+  event.preventDefault();
+  event.clipboardData.setData("text/html", html);
+  event.clipboardData.setData("text/plain", plainText);
+  return true;
+}
+
 function createClipboardHtml(element: HTMLElement): string {
   const clone = element.cloneNode(true) as HTMLElement;
   trimUiOnlyAttributes(clone);
@@ -222,6 +248,18 @@ function inlineKatexStyles(source: HTMLElement, clone: HTMLElement) {
 
 function isStylableElement(node: Element): node is HTMLElement | SVGElement {
   return node instanceof HTMLElement || node instanceof SVGElement;
+}
+
+function isSelectionInside(root: HTMLElement, selection: Selection) {
+  const anchorNode = selection.anchorNode;
+  const focusNode = selection.focusNode;
+
+  return Boolean(
+    anchorNode &&
+    focusNode &&
+    root.contains(anchorNode) &&
+    root.contains(focusNode)
+  );
 }
 
 function getPlainText(element: HTMLElement): string {
