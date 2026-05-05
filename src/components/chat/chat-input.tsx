@@ -2,26 +2,35 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, ImageIcon, Loader2, X } from "lucide-react";
+import { ArrowUp, FileText, Loader2, Paperclip, Table2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  ACCEPTED_ATTACHMENT_TYPES,
+  MAX_ATTACHMENTS,
+  MAX_DOCUMENT_SIZE,
+  MAX_IMAGE_SIZE,
+  extractDocumentAttachment,
+  formatFileSize,
+  getNormalizedMimeType,
+  getSupportedFileKind,
+  isSupportedAttachmentFile,
+} from "@/lib/file-extraction";
 import { generateId } from "@/lib/math-utils";
 import { cn } from "@/lib/utils";
-import type { ImageAttachment } from "@/types";
+import type { ChatAttachment, DocumentAttachment, ImageAttachment } from "@/types";
 
 interface ChatInputProps {
-  onSend: (message: string, attachments?: ImageAttachment[]) => void;
+  onSend: (message: string, attachments?: ChatAttachment[]) => void;
   isLoading: boolean;
 }
 
-const MAX_IMAGES = 4;
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
-
 export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   const [input, setInput] = useState("");
-  const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
-  const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [isProcessingFiles, setIsProcessingFiles] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -50,38 +59,66 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     if (!fileList.length) return;
 
     setAttachmentError(null);
-    const nextAttachments: ImageAttachment[] = [];
+    setIsProcessingFiles(true);
+    const nextAttachments: ChatAttachment[] = [];
+    const errors: string[] = [];
 
-    for (const file of fileList) {
-      if (!file.type.startsWith("image/")) {
-        setAttachmentError("Chỉ hỗ trợ file ảnh.");
-        continue;
+    try {
+      for (const file of fileList) {
+        if (attachments.length + nextAttachments.length >= MAX_ATTACHMENTS) {
+          errors.push(`Tối đa ${MAX_ATTACHMENTS} file mỗi lần gửi.`);
+          break;
+        }
+
+        if (!isSupportedAttachmentFile(file)) {
+          errors.push(`${file.name || "File"} chưa được hỗ trợ. Hãy dùng ảnh, PDF, DOCX, XLSX hoặc CSV.`);
+          continue;
+        }
+
+        const kind = getSupportedFileKind(file);
+
+        if (kind === "image") {
+          if (file.size > MAX_IMAGE_SIZE) {
+            errors.push(`${file.name || "Ảnh"} vượt quá ${formatFileSize(MAX_IMAGE_SIZE)}.`);
+            continue;
+          }
+
+          const dataUrl = await readFileAsDataUrl(file);
+          nextAttachments.push({
+            id: generateId(),
+            name: file.name || "clipboard-image.png",
+            mimeType: getNormalizedMimeType(file),
+            kind: "image",
+            dataUrl,
+            size: file.size,
+          });
+          continue;
+        }
+
+        if (kind === "document") {
+          if (file.size > MAX_DOCUMENT_SIZE) {
+            errors.push(`${file.name || "Tài liệu"} vượt quá ${formatFileSize(MAX_DOCUMENT_SIZE)}.`);
+            continue;
+          }
+
+          try {
+            nextAttachments.push(await extractDocumentAttachment(file, generateId()));
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Không đọc được file.";
+            errors.push(`${file.name || "Tài liệu"}: ${message}`);
+          }
+        }
       }
-
-      if (file.size > MAX_IMAGE_SIZE) {
-        setAttachmentError("Ảnh tối đa 5MB.");
-        continue;
-      }
-
-      if (attachments.length + nextAttachments.length >= MAX_IMAGES) {
-        setAttachmentError("Tối đa 4 ảnh mỗi lần gửi.");
-        break;
-      }
-
-      const dataUrl = await readFileAsDataUrl(file);
-      nextAttachments.push({
-        id: generateId(),
-        name: file.name || "clipboard-image.png",
-        mimeType: file.type,
-        dataUrl,
-        size: file.size,
-      });
+    } finally {
+      setIsProcessingFiles(false);
     }
 
     if (nextAttachments.length) {
-      setAttachments((current) => [...current, ...nextAttachments].slice(0, MAX_IMAGES));
+      setAttachments((current) => [...current, ...nextAttachments].slice(0, MAX_ATTACHMENTS));
       textareaRef.current?.focus();
     }
+
+    setAttachmentError(errors.at(-1) ?? null);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -89,32 +126,30 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   };
 
   const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const imageFiles = Array.from(event.clipboardData.files).filter((file) =>
-      file.type.startsWith("image/")
-    );
+    const files = Array.from(event.clipboardData.files).filter(isSupportedAttachmentFile);
 
-    if (!imageFiles.length) return;
+    if (!files.length) return;
 
     event.preventDefault();
-    void handleFiles(imageFiles);
+    void handleFiles(files);
   };
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    setIsDraggingImage(false);
+    setIsDraggingFile(false);
     void handleFiles(event.dataTransfer.files);
   };
 
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    if (hasDraggedImage(event.dataTransfer)) {
+    if (hasDraggedFile(event.dataTransfer)) {
       event.preventDefault();
-      setIsDraggingImage(true);
+      setIsDraggingFile(true);
     }
   };
 
   const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-      setIsDraggingImage(false);
+      setIsDraggingFile(false);
     }
   };
 
@@ -123,7 +158,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   };
 
   const handleSubmit = () => {
-    if ((!input.trim() && attachments.length === 0) || isLoading) return;
+    if ((!input.trim() && attachments.length === 0) || isLoading || isProcessingFiles) return;
     onSend(input, attachments);
     setInput("");
     setAttachments([]);
@@ -140,7 +175,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     }
   };
 
-  const canSend = (input.trim().length > 0 || attachments.length > 0) && !isLoading;
+  const canSend = (input.trim().length > 0 || attachments.length > 0) && !isLoading && !isProcessingFiles;
 
   return (
     <div className="shrink-0 bg-background px-3 pb-3 pt-2 md:px-6 md:pb-5">
@@ -148,7 +183,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
         <div
           className={cn(
             "rounded-[28px] border bg-card px-3 py-3 shadow-sm transition-colors focus-within:border-muted-foreground/50",
-            isDraggingImage && "border-foreground/60 bg-accent"
+            isDraggingFile && "border-foreground/60 bg-accent"
           )}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
@@ -157,24 +192,11 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
           {attachments.length > 0 && (
             <div className="mb-3 flex flex-wrap gap-2 px-1">
               {attachments.map((attachment) => (
-                <div
+                <AttachmentPreview
                   key={attachment.id}
-                  className="group relative h-16 w-16 overflow-hidden rounded-xl border bg-muted"
-                >
-                  <img
-                    src={attachment.dataUrl}
-                    alt={attachment.name}
-                    className="h-full w-full object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeAttachment(attachment.id)}
-                    className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-background/90 text-foreground shadow-sm opacity-90 transition-opacity hover:opacity-100"
-                    aria-label="Xóa ảnh"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
+                  attachment={attachment}
+                  onRemove={() => removeAttachment(attachment.id)}
+                />
               ))}
             </div>
           )}
@@ -183,7 +205,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept={ACCEPTED_ATTACHMENT_TYPES}
               multiple
               className="hidden"
               onChange={(event) => void handleFiles(event.target.files)}
@@ -193,11 +215,15 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
               variant="ghost"
               size="icon"
               className="h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
-              disabled={isLoading || attachments.length >= MAX_IMAGES}
+              disabled={isLoading || isProcessingFiles || attachments.length >= MAX_ATTACHMENTS}
               onClick={() => fileInputRef.current?.click()}
-              aria-label="Thêm ảnh"
+              aria-label="Thêm file"
             >
-              <ImageIcon className="h-4 w-4" />
+              {isProcessingFiles ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Paperclip className="h-4 w-4" />
+              )}
             </Button>
             <Textarea
               ref={textareaRef}
@@ -207,7 +233,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
               onKeyDown={handleKeyDown}
               placeholder="Hỏi bài toán bất kỳ"
               className="max-h-[200px] min-h-[28px] flex-1 resize-none border-0 bg-transparent px-2 py-1 text-[15px] leading-6 shadow-none placeholder:text-muted-foreground focus-visible:ring-0 md:text-[15px]"
-              disabled={isLoading}
+              disabled={isLoading || isProcessingFiles}
               rows={1}
             />
             <div className="flex shrink-0 items-center gap-2">
@@ -244,15 +270,102 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
           )}
         </div>
         <p className="mt-2 text-center text-xs text-muted-foreground">
-          Dán ảnh bằng Ctrl+V hoặc kéo ảnh vào khung chat.
+          Dán hoặc kéo ảnh, PDF, DOCX, Excel (.xlsx) hoặc CSV vào khung chat.
         </p>
       </div>
     </div>
   );
 }
 
-function hasDraggedImage(dataTransfer: DataTransfer) {
-  return Array.from(dataTransfer.items).some((item) => item.type.startsWith("image/"));
+function AttachmentPreview({
+  attachment,
+  onRemove,
+}: {
+  attachment: ChatAttachment;
+  onRemove: () => void;
+}) {
+  if (isImageAttachment(attachment)) {
+    return (
+      <div className="group relative h-16 w-16 overflow-hidden rounded-xl border bg-muted">
+        <img
+          src={attachment.dataUrl}
+          alt={attachment.name}
+          className="h-full w-full object-cover"
+        />
+        <RemoveAttachmentButton onRemove={onRemove} label="Xóa ảnh" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="group relative flex min-h-16 max-w-full items-center gap-3 rounded-xl border bg-muted px-3 py-2 pr-9 sm:max-w-[19rem]">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-background text-muted-foreground">
+        {isSpreadsheetAttachment(attachment) ? (
+          <Table2 className="h-4 w-4" />
+        ) : (
+          <FileText className="h-4 w-4" />
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{attachment.name}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {getDocumentAttachmentSummary(attachment)}
+        </p>
+      </div>
+      <RemoveAttachmentButton onRemove={onRemove} label="Xóa file" />
+    </div>
+  );
+}
+
+function RemoveAttachmentButton({
+  onRemove,
+  label,
+}: {
+  onRemove: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-background/90 text-foreground shadow-sm opacity-90 transition-opacity hover:opacity-100"
+      aria-label={label}
+    >
+      <X className="h-3 w-3" />
+    </button>
+  );
+}
+
+function getDocumentAttachmentSummary(attachment: DocumentAttachment) {
+  const details = [formatFileSize(attachment.size)];
+
+  if (attachment.pageCount) {
+    details.push(`${attachment.pageCount} trang`);
+  }
+
+  if (attachment.sheetCount) {
+    details.push(`${attachment.sheetCount} sheet`);
+  }
+
+  details.push(`${attachment.textLength.toLocaleString("vi-VN")} ký tự`);
+
+  if (attachment.truncated) {
+    details.push("đã rút gọn");
+  }
+
+  return details.join(" • ");
+}
+
+function isImageAttachment(attachment: ChatAttachment): attachment is ImageAttachment {
+  return attachment.kind === "image" || "dataUrl" in attachment;
+}
+
+function isSpreadsheetAttachment(attachment: DocumentAttachment) {
+  return /spreadsheet|excel|csv/i.test(attachment.mimeType) || /\.(xlsx|csv)$/i.test(attachment.name);
+}
+
+function hasDraggedFile(dataTransfer: DataTransfer) {
+  return Array.from(dataTransfer.items).some((item) => item.kind === "file");
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {

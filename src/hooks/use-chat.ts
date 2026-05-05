@@ -2,9 +2,10 @@
 
 import { useCallback } from "react";
 import { useChatStore } from "@/stores/chat-store";
+import { getDefaultPromptForAttachments } from "@/lib/attachment-content";
 import { getApiUrl, hasRuntimeApi } from "@/lib/api-url";
 import { generateId, sanitizeAssistantContent } from "@/lib/math-utils";
-import type { ImageAttachment } from "@/types";
+import type { ChatAttachment } from "@/types";
 
 interface SendMessageOptions {
   onError?: (error: string) => void;
@@ -29,7 +30,7 @@ export function useChat(options?: SendMessageOptions) {
   } = useChatStore();
 
   const sendMessage = useCallback(
-    async (content: string, attachments: ImageAttachment[] = []) => {
+    async (content: string, attachments: ChatAttachment[] = []) => {
       const trimmedContent = content.trim();
       const hasAttachments = attachments.length > 0;
       if ((!trimmedContent && !hasAttachments) || isLoading) return;
@@ -42,7 +43,7 @@ export function useChat(options?: SendMessageOptions) {
       const userMessage = {
         id: generateId(),
         role: "user" as const,
-        content: trimmedContent || "Đọc ảnh và trích xuất công thức/toán học trong ảnh.",
+        content: trimmedContent || getDefaultPromptForAttachments(attachments),
         attachments,
         timestamp: Date.now(),
       };

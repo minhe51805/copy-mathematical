@@ -1,4 +1,5 @@
 import { getOpenAI } from "@/lib/openai";
+import { buildMessageTextWithAttachments } from "@/lib/attachment-content";
 import { SYSTEM_PROMPT } from "@/lib/prompts";
 import { createCorsPreflightResponse, getCorsHeaders } from "@/lib/cors";
 import { createGeminiStream, shouldUseGeminiNative } from "@/lib/gemini";
@@ -8,18 +9,24 @@ import type {
   ChatCompletionMessageParam,
 } from "openai/resources/chat/completions";
 
-interface IncomingImageAttachment {
+interface IncomingAttachment {
   id?: string;
   name?: string;
   mimeType?: string;
+  kind?: string;
   dataUrl?: string;
+  extractedText?: string;
+  textLength?: number;
+  truncated?: boolean;
+  pageCount?: number;
+  sheetCount?: number;
   size?: number;
 }
 
 interface IncomingMessage {
   role: "user" | "assistant";
   content: string;
-  attachments?: IncomingImageAttachment[];
+  attachments?: IncomingAttachment[];
 }
 
 export function OPTIONS(req: NextRequest) {
@@ -119,7 +126,7 @@ function isOpenAIChunk(chunk: unknown): chunk is { choices: Array<{ delta?: { co
 }
 
 function toChatCompletionMessage(message: IncomingMessage): ChatCompletionMessageParam {
-  const text = message.content?.trim() || "Đọc ảnh và trích xuất công thức/toán học trong ảnh.";
+  const text = buildMessageTextWithAttachments(message.content, message.attachments);
   const imageParts = (message.attachments ?? [])
     .filter((attachment) => isValidImageDataUrl(attachment.dataUrl))
     .map((attachment): ChatCompletionContentPart => ({

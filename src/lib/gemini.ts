@@ -1,16 +1,24 @@
 import { GoogleGenAI, type Content, type Part } from "@google/genai";
+import { buildMessageTextWithAttachments } from "@/lib/attachment-content";
 
 let geminiClient: GoogleGenAI | null = null;
 
-export interface GeminiImageAttachment {
+export interface GeminiAttachment {
+  kind?: string;
+  name?: string;
   mimeType?: string;
   dataUrl?: string;
+  extractedText?: string;
+  textLength?: number;
+  truncated?: boolean;
+  pageCount?: number;
+  sheetCount?: number;
 }
 
 export interface GeminiMessage {
   role: "user" | "assistant";
   content: string;
-  attachments?: GeminiImageAttachment[];
+  attachments?: GeminiAttachment[];
 }
 
 export function shouldUseGeminiNative() {
@@ -71,7 +79,7 @@ export async function generateGeminiText(params: {
 function toGeminiContent(message: GeminiMessage): Content {
   const parts: Part[] = [
     {
-      text: message.content?.trim() || "Đọc ảnh và trích xuất công thức/toán học trong ảnh.",
+      text: buildMessageTextWithAttachments(message.content, message.attachments),
     },
   ];
 
@@ -90,7 +98,7 @@ function toGeminiContent(message: GeminiMessage): Content {
   };
 }
 
-function toInlineData(attachment: GeminiImageAttachment) {
+function toInlineData(attachment: GeminiAttachment) {
   if (!attachment.dataUrl) return null;
 
   const match = attachment.dataUrl.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);

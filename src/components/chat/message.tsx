@@ -2,12 +2,13 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useRef, useState } from "react";
-import { Check, Copy, Download } from "lucide-react";
+import { Check, Copy, Download, FileText, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { copyRenderedContent } from "@/lib/clipboard";
+import { formatFileSize } from "@/lib/file-extraction";
 import { formatTimestamp } from "@/lib/math-utils";
-import type { Message as MessageType } from "@/types";
+import type { ChatAttachment, DocumentAttachment, ImageAttachment, Message as MessageType } from "@/types";
 import { cn } from "@/lib/utils";
 import { MathRenderer } from "./math-renderer";
 
@@ -63,21 +64,13 @@ export function Message({ message, onExport }: MessageProps) {
             )}
           >
             {message.attachments?.length ? (
-              <div className="mb-3 grid max-w-[22rem] grid-cols-2 gap-2">
+              <div className="mb-3 flex max-w-[24rem] flex-wrap gap-2">
                 {message.attachments.map((attachment) => (
-                  <a
+                  <MessageAttachment
                     key={attachment.id}
-                    href={attachment.dataUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block overflow-hidden rounded-xl border border-white/10 bg-black/10"
-                  >
-                    <img
-                      src={attachment.dataUrl}
-                      alt={attachment.name}
-                      className="h-32 w-full object-cover"
-                    />
-                  </a>
+                    attachment={attachment}
+                    isUser={isUser}
+                  />
                 ))}
               </div>
             ) : null}
@@ -154,4 +147,85 @@ export function Message({ message, onExport }: MessageProps) {
       </div>
     </TooltipProvider>
   );
+}
+
+function MessageAttachment({
+  attachment,
+  isUser,
+}: {
+  attachment: ChatAttachment;
+  isUser: boolean;
+}) {
+  if (isImageAttachment(attachment)) {
+    return (
+      <a
+        href={attachment.dataUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="block h-32 w-40 overflow-hidden rounded-xl border border-white/10 bg-black/10"
+      >
+        <img
+          src={attachment.dataUrl}
+          alt={attachment.name}
+          className="h-full w-full object-cover"
+        />
+      </a>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex min-h-16 w-full max-w-[24rem] items-center gap-3 rounded-xl border px-3 py-2",
+        isUser ? "border-white/10 bg-white/10" : "bg-muted"
+      )}
+    >
+      <div
+        className={cn(
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+          isUser ? "bg-black/10 text-white/75" : "bg-background text-muted-foreground"
+        )}
+      >
+        {isSpreadsheetAttachment(attachment) ? (
+          <Table2 className="h-4 w-4" />
+        ) : (
+          <FileText className="h-4 w-4" />
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{attachment.name}</p>
+        <p className={cn("truncate text-xs", isUser ? "text-white/60" : "text-muted-foreground")}>
+          {getDocumentAttachmentSummary(attachment)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function getDocumentAttachmentSummary(attachment: DocumentAttachment) {
+  const details = [formatFileSize(attachment.size)];
+
+  if (attachment.pageCount) {
+    details.push(`${attachment.pageCount} trang`);
+  }
+
+  if (attachment.sheetCount) {
+    details.push(`${attachment.sheetCount} sheet`);
+  }
+
+  details.push(`${attachment.textLength.toLocaleString("vi-VN")} ký tự`);
+
+  if (attachment.truncated) {
+    details.push("đã rút gọn");
+  }
+
+  return details.join(" • ");
+}
+
+function isImageAttachment(attachment: ChatAttachment): attachment is ImageAttachment {
+  return attachment.kind === "image" || "dataUrl" in attachment;
+}
+
+function isSpreadsheetAttachment(attachment: DocumentAttachment) {
+  return /spreadsheet|excel|csv/i.test(attachment.mimeType) || /\.(xlsx|csv)$/i.test(attachment.name);
 }

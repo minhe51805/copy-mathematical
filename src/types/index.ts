@@ -2,15 +2,31 @@ export type ImageAttachment = {
   id: string;
   name: string;
   mimeType: string;
+  kind?: "image";
   dataUrl: string;
   size: number;
 };
+
+export type DocumentAttachment = {
+  id: string;
+  name: string;
+  mimeType: string;
+  kind: "document";
+  size: number;
+  extractedText: string;
+  textLength: number;
+  truncated?: boolean;
+  pageCount?: number;
+  sheetCount?: number;
+};
+
+export type ChatAttachment = ImageAttachment | DocumentAttachment;
 
 export type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  attachments?: ImageAttachment[];
+  attachments?: ChatAttachment[];
   timestamp: number;
 };
 
