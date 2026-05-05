@@ -321,10 +321,10 @@ export function ChatInput({ onSend, isLoading, attachments, onAttachmentsChange 
   const visibleAttachments = attachments.filter((attachment) => !formulaAttachmentIds.has(attachment.id));
 
   return (
-    <div className="shrink-0 border-t bg-background/95 px-4 pb-4 pt-3 backdrop-blur md:px-8 md:pb-6">
+    <div className="shrink-0 border-t bg-background/95 px-3 pb-4 pt-3 backdrop-blur sm:px-4 md:px-6 md:pb-6 lg:px-8">
       {isDraggingFile && (
-        <div className="pointer-events-none fixed inset-0 z-[100] flex items-center justify-center bg-background/80 p-6 backdrop-blur-sm">
-          <div className="flex w-full max-w-lg flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-foreground/30 bg-card px-8 py-12 text-center shadow-[var(--shadow-md)]">
+        <div className="pointer-events-auto fixed inset-0 z-[9999] flex items-center justify-center bg-background/90 p-6 backdrop-blur-sm">
+          <div className="flex w-full max-w-md flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[hsl(var(--terracotta))] bg-card px-8 py-10 text-center shadow-[var(--shadow-md)]">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-[hsl(var(--terracotta))]">
               {isProcessingFiles ? (
                 <Loader2 className="h-6 w-6 animate-spin" />
@@ -339,11 +339,10 @@ export function ChatInput({ onSend, isLoading, attachments, onAttachmentsChange 
           </div>
         </div>
       )}
-      <div className="mx-auto w-full max-w-4xl">
+      <div className="mx-auto w-full max-w-3xl">
         <div
           className={cn(
-            "rounded-xl border border-border/15 bg-card px-3 py-3 shadow-[var(--shadow-sm)] transition-all focus-within:border-border/40 focus-within:shadow-[var(--shadow-md)]",
-            isDraggingFile && "border-[hsl(var(--terracotta))] bg-secondary"
+            "rounded-xl border border-border/15 bg-card px-3 py-3 shadow-[var(--shadow-sm)] transition-all focus-within:border-border/40 focus-within:shadow-[var(--shadow-md)]"
           )}
           onDrop={handleDrop}
           onDragOver={handleDragOver}

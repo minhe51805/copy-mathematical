@@ -45,22 +45,22 @@ export function MessageList({ messages, isLoading, onExport }: MessageListProps)
   };
 
   return (
-    <div className="relative min-h-0 flex-1 bg-background">
+    <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
       <ScrollArea className="h-full" ref={scrollRef} onScroll={handleScroll}>
-        <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-8 px-5 pb-8 pt-6 md:px-10">
+        <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-8 px-4 pb-8 pt-6 sm:px-6 md:px-8 xl:px-10">
           {messages.length === 0 && !isLoading && (
-            <div className="flex min-h-[calc(100dvh-15rem)] flex-col items-center justify-center px-2 text-center">
+            <div className="flex min-h-[calc(100dvh-15rem)] w-full min-w-0 flex-col items-center justify-center px-1 text-center sm:px-2">
               <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl border border-border/15 bg-card text-xl font-semibold text-[hsl(var(--terracotta))] shadow-[var(--shadow-sm)]">
                 ∑
               </div>
-              <h2 className="max-w-2xl text-[32px] font-normal leading-[1.18] text-foreground md:text-[48px]">
+              <h2 className="w-full max-w-[46rem] text-balance text-[clamp(2rem,5vw,3rem)] font-normal leading-[1.12] text-foreground">
                 Tôi có thể giúp gì cho bạn?
               </h2>
-              <div className="mt-10 grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="mt-8 grid w-full max-w-3xl grid-cols-1 gap-3 md:grid-cols-3">
                 {SUGGESTIONS.map((suggestion, index) => (
                   <button
                     key={index}
-                    className="claude-card claude-card-hover group flex min-h-[128px] flex-col items-start gap-3 p-5 text-left"
+                    className="claude-card claude-card-hover group flex min-h-[112px] min-w-0 flex-col items-start gap-3 p-4 text-left sm:p-5"
                     onClick={() => {
                       const event = new CustomEvent("suggestion-click", { detail: suggestion.text });
                       window.dispatchEvent(event);
@@ -72,7 +72,7 @@ export function MessageList({ messages, isLoading, onExport }: MessageListProps)
                         {suggestion.label}
                       </span>
                     </div>
-                    <p className="text-[15px] leading-[22.5px] text-foreground/85 transition-colors group-hover:text-foreground">
+                    <p className="max-w-full text-[15px] leading-[22.5px] text-foreground/85 transition-colors group-hover:text-foreground">
                       {suggestion.text}
                     </p>
                   </button>

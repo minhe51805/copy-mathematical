@@ -80,14 +80,14 @@ export function Sidebar({ onChatSelect }: SidebarProps) {
                 <div
                   key={conv.id}
                   className={cn(
-                    "group relative flex cursor-pointer items-center gap-2 rounded-[9.6px] px-3 py-2.5 text-sm text-[#FAF9F5]/82 transition-colors hover:bg-white/[0.06]",
+                    "group relative flex min-w-0 cursor-pointer items-center gap-2 rounded-[9.6px] px-3 py-2.5 pr-10 text-sm text-[#FAF9F5]/82 transition-colors hover:bg-white/[0.06]",
                     currentConversationId === conv.id && "bg-[hsl(var(--sidebar-active))] text-white"
                   )}
                   onClick={() => handleSelectChat(conv.id)}
                 >
                   <MessageSquare className="h-4 w-4 shrink-0 text-[#FAF9F5]/58" />
-                  <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
-                    <span className="truncate font-medium leading-snug">{conv.title}</span>
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <span className="block truncate font-medium leading-snug">{conv.title}</span>
                     <span className="text-xs text-[#FAF9F5]/45">
                       {formatTimestamp(conv.updatedAt)}
                     </span>
@@ -97,7 +97,7 @@ export function Sidebar({ onChatSelect }: SidebarProps) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 shrink-0 text-[#FAF9F5]/58 opacity-0 transition-opacity hover:border-white/15 hover:bg-white/[0.08] hover:text-white group-hover:opacity-100"
+                        className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 text-[#FAF9F5]/58 opacity-0 transition-opacity hover:border-white/15 hover:bg-white/[0.08] hover:text-white group-hover:opacity-100"
                         onClick={(e) => {
                           e.stopPropagation();
                           deleteConversation(conv.id);

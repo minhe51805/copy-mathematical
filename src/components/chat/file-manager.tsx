@@ -33,8 +33,8 @@ export function FileManager({
   const totalFiles = pendingAttachments.length + uploadedFiles.length;
 
   return (
-    <aside className="hidden w-[312px] shrink-0 border-l bg-background lg:flex lg:flex-col">
-      <div className="border-b bg-card/70 px-5 py-4">
+    <aside className="hidden w-[288px] shrink-0 border-l bg-background xl:flex xl:flex-col 2xl:w-[312px]">
+      <div className="border-b bg-card/70 px-4 py-4 2xl:px-5">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold">Tệp đã đưa lên</h2>
@@ -46,7 +46,7 @@ export function FileManager({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 2xl:px-4">
         {totalFiles === 0 ? (
           <div className="flex h-full items-center justify-center text-center">
             <p className="max-w-[13rem] text-sm text-muted-foreground">
