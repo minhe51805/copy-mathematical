@@ -76,6 +76,8 @@ interface FormulaRecognitionDebug {
   openAIBaseUrlHost?: string | null;
   openAIModel?: string | null;
   formulaRecognitionModel?: string;
+  attemptedFormulaModels?: string[];
+  providerError?: string;
 }
 
 const DEFAULT_LATEX = "\\int_0^{\\frac{\\pi}{2}} f(x)\\,dx = 0";
@@ -765,7 +767,10 @@ function getRecognitionDebugHint(debug?: FormulaRecognitionDebug) {
   }
 
   if (debug.provider === "gemini") {
-    return `Backend đang dùng Gemini cho nhận dạng: ${debug.formulaRecognitionModel ?? "model chưa rõ"}.`;
+    const attempted = debug.attemptedFormulaModels?.length
+      ? ` Đã thử: ${debug.attemptedFormulaModels.join(", ")}.`
+      : "";
+    return `Backend đang dùng Gemini cho nhận dạng: ${debug.formulaRecognitionModel ?? "model chưa rõ"}.${attempted}`;
   }
 
   return null;

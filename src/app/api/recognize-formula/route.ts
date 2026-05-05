@@ -16,6 +16,8 @@ interface RecognitionDebug {
   openAIBaseUrlHost: string | null;
   openAIModel: string | null;
   formulaRecognitionModel: string;
+  attemptedFormulaModels?: string[];
+  providerError?: string;
 }
 
 const SYSTEM_PROMPT = [
@@ -29,6 +31,13 @@ const USER_PROMPT = [
   "Read the handwritten math expression in this image.",
   "Return the best LaTeX transcription only.",
 ].join("\n");
+
+const GEMINI_FORMULA_MODEL_FALLBACKS = [
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+  "gemini-3-flash-preview",
+];
 
 export function OPTIONS(req: NextRequest) {
   return createCorsPreflightResponse(req);
@@ -77,11 +86,15 @@ export async function POST(req: NextRequest) {
         : await recognizeWithOpenAI(imageDataUrl);
     } catch (error) {
       console.error("Formula recognition provider error:", error);
+      const providerError = sanitizeProviderErrorMessage(error);
       return NextResponse.json(
         {
           latex: "",
-          error: getRecognitionErrorMessage(error),
-          debug,
+          error: getRecognitionErrorMessage(error, debug),
+          debug: {
+            ...debug,
+            providerError,
+          },
         },
         { headers: corsHeaders }
       );
@@ -117,29 +130,37 @@ async function recognizeWithGemini(imageDataUrl: string) {
 
   const parsed = parseImageDataUrl(imageDataUrl);
   const ai = new GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    model: getFormulaRecognitionModel(),
-    contents: [
-      {
-        role: "user",
-        parts: [
-          { text: USER_PROMPT },
+  let lastError: unknown = null;
+
+  for (const model of getFormulaRecognitionModelCandidates()) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: [
           {
             inlineData: {
               mimeType: parsed.mimeType,
               data: parsed.data,
             },
           },
+          { text: USER_PROMPT },
         ],
-      },
-    ],
-    config: {
-      systemInstruction: SYSTEM_PROMPT,
-      temperature: 0.05,
-    },
-  });
+        config: {
+          systemInstruction: SYSTEM_PROMPT,
+          temperature: 0.05,
+        },
+      });
 
-  return response.text ?? "";
+      return response.text ?? "";
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableGeminiModelError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError ?? new Error("Gemini formula recognition failed");
 }
 
 async function recognizeWithOpenAI(imageDataUrl: string) {
@@ -221,11 +242,19 @@ function looksLikeModelDidNotReadImage(value: string) {
     .test(value);
 }
 
-function getRecognitionErrorMessage(error: unknown) {
+function getRecognitionErrorMessage(error: unknown, debug?: RecognitionDebug) {
   const message = error instanceof Error ? error.message : String(error);
+  const providerMessage = sanitizeProviderErrorMessage(error);
 
   if (/API key|api key/i.test(message)) {
     return "Backend chưa có API key cho nhận dạng công thức.";
+  }
+
+  if (debug?.provider === "gemini") {
+    return [
+      `Gemini đang fail với model nhận dạng ${debug.formulaRecognitionModel}.`,
+      providerMessage ? `Lỗi gốc: ${providerMessage}` : "Hãy thử đổi FORMULA_RECOGNITION_MODEL trên backend.",
+    ].join(" ");
   }
 
   if (/vision|image|multimodal|unsupported|model/i.test(message)) {
@@ -251,6 +280,11 @@ function getFormulaRecognitionModel() {
   return process.env.FORMULA_RECOGNITION_MODEL?.trim() || process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
 }
 
+function getFormulaRecognitionModelCandidates() {
+  const preferred = getFormulaRecognitionModel();
+  return Array.from(new Set([preferred, ...GEMINI_FORMULA_MODEL_FALLBACKS].filter(Boolean)));
+}
+
 function getRecognitionDebug(): RecognitionDebug {
   return {
     provider: getFormulaGeminiApiKey()
@@ -264,6 +298,9 @@ function getRecognitionDebug(): RecognitionDebug {
     openAIBaseUrlHost: getOpenAIBaseUrlHost(),
     openAIModel: process.env.OPENAI_MODEL?.trim() || null,
     formulaRecognitionModel: getFormulaRecognitionModel(),
+    attemptedFormulaModels: shouldUseGeminiForFormulaRecognition()
+      ? getFormulaRecognitionModelCandidates()
+      : undefined,
   };
 }
 
@@ -276,6 +313,21 @@ function getOpenAIBaseUrlHost() {
   } catch {
     return value;
   }
+}
+
+function isRetryableGeminiModelError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /404|not found|not supported|unsupported|model|vision|image|multimodal/i.test(message);
+}
+
+function sanitizeProviderErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message
+    .replace(/AIza[0-9A-Za-z_-]{20,}/g, "[redacted-api-key]")
+    .replace(/key=[0-9A-Za-z_-]+/gi, "key=[redacted]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 360);
 }
 
 function isOpenAIProviderLikelyVisionCapable() {
