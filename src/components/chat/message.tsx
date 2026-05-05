@@ -179,7 +179,7 @@ function ExportDocumentCard({
             {getExportDocumentTitle(content)}
           </span>
           <span className="block truncate text-xs text-muted-foreground">
-            Document · DOCX
+            Document · Word
           </span>
         </span>
       </span>
@@ -202,7 +202,7 @@ function getExportDocumentTitle(content: string) {
     .find((line) => line.length > 0 && !line.startsWith("\\[") && !line.startsWith("$$"));
 
   if (!firstUsefulLine) {
-    return "Câu trả lời AI.docx";
+    return "Câu trả lời AI.doc";
   }
 
   const compactTitle = firstUsefulLine
@@ -210,7 +210,7 @@ function getExportDocumentTitle(content: string) {
     .slice(0, 42)
     .trim();
 
-  return `${compactTitle}${firstUsefulLine.length > 42 ? "..." : ""}.docx`;
+  return `${compactTitle}${firstUsefulLine.length > 42 ? "..." : ""}.doc`;
 }
 
 function MessageAttachment({

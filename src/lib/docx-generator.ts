@@ -1,225 +1,290 @@
-import {
-  AlignmentType,
-  Document,
-  HeadingLevel,
-  Packer,
-  Paragraph,
-  Table,
-  TableCell,
-  TableRow,
-  TextRun,
-  WidthType,
-} from "docx";
+import { normalizeMathMarkdown } from "./math-utils";
 
-type DocxBlock = Paragraph | Table;
+const WORD_EXPORT_STYLE_PROPERTIES = [
+  "border-collapse",
+  "border-radius",
+  "border-spacing",
+  "border-width",
+  "box-sizing",
+  "display",
+  "font-family",
+  "font-size",
+  "font-style",
+  "font-weight",
+  "height",
+  "left",
+  "line-height",
+  "margin",
+  "max-height",
+  "max-width",
+  "min-height",
+  "min-width",
+  "overflow",
+  "padding",
+  "position",
+  "right",
+  "table-layout",
+  "text-align",
+  "text-decoration",
+  "top",
+  "transform",
+  "transform-origin",
+  "vertical-align",
+  "white-space",
+  "width",
+] as const;
 
-export async function generateDocx(content: string, title = "AI Math Chat Export"): Promise<Blob> {
-  const doc = new Document({
-    sections: [
-      {
-        properties: {},
-        children: [
-          new Paragraph({
-            text: title,
-            heading: HeadingLevel.TITLE,
-            alignment: AlignmentType.CENTER,
-          }),
-          new Paragraph({
-            text: `Exported on ${new Date().toLocaleDateString("vi-VN")}`,
-            alignment: AlignmentType.CENTER,
-          }),
-          new Paragraph({ text: "" }),
-          ...parseContent(content),
-        ],
-      },
+const WORD_HTML_CSS = `
+  @page WordSection1 {
+    size: 21cm 29.7cm;
+    margin: 1.7cm 1.8cm 1.7cm 1.8cm;
+  }
+  body {
+    margin: 0;
+    background: #ffffff;
+    color: #111111;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11pt;
+    line-height: 1.55;
+  }
+  .WordSection1 { page: WordSection1; }
+  .export-title {
+    margin: 0 0 4px;
+    text-align: center;
+    font-size: 18pt;
+    font-weight: 700;
+  }
+  .export-date {
+    margin: 0 0 18px;
+    text-align: center;
+    color: #666666;
+    font-size: 9pt;
+  }
+  .math-chat-word,
+  .math-chat-word * {
+    color: #111111 !important;
+  }
+  .math-chat-word p { margin: 0 0 10px; }
+  .math-chat-word h1 {
+    margin: 18px 0 10px;
+    color: #1f5f9f !important;
+    font-size: 18pt;
+    font-weight: 700;
+  }
+  .math-chat-word h2 {
+    margin: 16px 0 9px;
+    color: #1f5f9f !important;
+    font-size: 15pt;
+    font-weight: 700;
+  }
+  .math-chat-word h3 {
+    margin: 14px 0 8px;
+    font-size: 13pt;
+    font-weight: 700;
+  }
+  .math-chat-word ul,
+  .math-chat-word ol {
+    margin: 0 0 10px 24px;
+    padding: 0;
+  }
+  .math-chat-word li { margin: 3px 0; }
+  .math-chat-word blockquote {
+    margin: 10px 0;
+    border-left: 3px solid #d0d0d0;
+    padding-left: 10px;
+    color: #444444 !important;
+    font-style: italic;
+  }
+  .math-chat-word table {
+    width: 100%;
+    margin: 12px 0;
+    border-collapse: collapse;
+    font-size: 10pt;
+  }
+  .math-chat-word th,
+  .math-chat-word td {
+    border: 1px solid #d9d9d9;
+    padding: 6px 8px;
+    vertical-align: top;
+  }
+  .math-chat-word th {
+    background: #f2f2f2;
+    font-weight: 700;
+  }
+  .math-chat-word pre {
+    margin: 10px 0;
+    padding: 8px 10px;
+    background: #f6f6f6;
+    border: 1px solid #e3e3e3;
+    border-radius: 6px;
+    white-space: pre-wrap;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 10pt;
+  }
+  .math-chat-word code {
+    font-family: Consolas, "Courier New", monospace;
+    background: #f6f6f6;
+    border-radius: 3px;
+    padding: 1px 3px;
+  }
+  .math-chat-word hr {
+    margin: 16px 0;
+    border: 0;
+    border-top: 1px solid #d9d9d9;
+  }
+  .math-chat-word .katex {
+    font-size: 1.08em;
+  }
+  .math-chat-word .katex-display {
+    display: block;
+    margin: 12px 0;
+    padding: 10px 12px;
+    text-align: center;
+    overflow: visible;
+    background: #f7f7f7;
+    border: 1px solid #d9d9d9;
+    border-radius: 8px;
+  }
+  .math-chat-word .katex-display > .katex {
+    display: block;
+    text-align: center;
+  }
+  .math-chat-word .katex-html {
+    white-space: nowrap;
+  }
+`;
+
+export async function generateDocx(
+  content: string,
+  title = "AI Math Chat Export",
+  renderedElement?: HTMLElement | null
+): Promise<Blob> {
+  const bodyHtml = renderedElement
+    ? createRenderedContentHtml(renderedElement)
+    : createFallbackContentHtml(content);
+
+  return new Blob(
+    [
+      [
+        "<!doctype html>",
+        '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">',
+        "<head>",
+        '<meta charset="utf-8">',
+        `<title>${escapeHtml(title)}</title>`,
+        `<style>${WORD_HTML_CSS}</style>`,
+        "</head>",
+        "<body>",
+        '<div class="WordSection1">',
+        `<h1 class="export-title">${escapeHtml(title)}</h1>`,
+        `<p class="export-date">Exported on ${new Date().toLocaleDateString("vi-VN")}</p>`,
+        `<div class="math-chat-word">${bodyHtml}</div>`,
+        "</div>",
+        "</body>",
+        "</html>",
+      ].join(""),
     ],
-  });
-
-  return await Packer.toBlob(doc);
+    { type: "application/msword;charset=utf-8" }
+  );
 }
 
-function parseContent(content: string): DocxBlock[] {
-  const lines = content.split("\n");
-  const blocks: DocxBlock[] = [];
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    const trimmed = line.trim();
-
-    if (!trimmed) {
-      blocks.push(new Paragraph({ text: "" }));
-      continue;
-    }
-
-    if (isMarkdownTableStart(lines, index)) {
-      const tableLines = collectTableLines(lines, index);
-      blocks.push(createTable(tableLines));
-      index += tableLines.length - 1;
-      continue;
-    }
-
-    if (trimmed.startsWith("$$")) {
-      const mathLines = [trimmed.replace(/^\$\$/, "")];
-      while (index + 1 < lines.length && !lines[index + 1].trim().endsWith("$$")) {
-        index += 1;
-        mathLines.push(lines[index].trim());
-      }
-      if (index + 1 < lines.length) {
-        index += 1;
-        mathLines.push(lines[index].trim().replace(/\$\$$/, ""));
-      }
-      blocks.push(createParagraph(`[Math] ${mathLines.join(" ").trim()}`, { italics: true }));
-      continue;
-    }
-
-    if (trimmed.startsWith("# ")) {
-      blocks.push(new Paragraph({ text: trimmed.slice(2), heading: HeadingLevel.HEADING_1 }));
-      continue;
-    }
-
-    if (trimmed.startsWith("## ")) {
-      blocks.push(new Paragraph({ text: trimmed.slice(3), heading: HeadingLevel.HEADING_2 }));
-      continue;
-    }
-
-    if (trimmed.startsWith("### ")) {
-      blocks.push(new Paragraph({ text: trimmed.slice(4), heading: HeadingLevel.HEADING_3 }));
-      continue;
-    }
-
-    const bulletMatch = trimmed.match(/^[-*]\s+(.+)$/);
-    if (bulletMatch) {
-      blocks.push(
-        new Paragraph({
-          children: [
-            new TextRun({ text: "• ", bold: true }),
-            ...parseInlineStyles(bulletMatch[1]),
-          ],
-        })
-      );
-      continue;
-    }
-
-    const numberedMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
-    if (numberedMatch) {
-      blocks.push(
-        new Paragraph({
-          children: [
-            new TextRun({ text: `${numberedMatch[1]}. `, bold: true }),
-            ...parseInlineStyles(numberedMatch[2]),
-          ],
-        })
-      );
-      continue;
-    }
-
-    blocks.push(createParagraph(trimmed));
-  }
-
-  return blocks;
+export function getWordExportFilename(filename = "math-chat.doc") {
+  const trimmed = filename.trim() || "math-chat.doc";
+  return trimmed.replace(/\.(docx|doc)$/i, "") + ".doc";
 }
 
-function createParagraph(text: string, options?: { italics?: boolean }): Paragraph {
-  if (options?.italics) {
-    return new Paragraph({
-      children: [new TextRun({ text: cleanInlineMarkdown(text), italics: true })],
-    });
-  }
-
-  return new Paragraph({
-    children: parseInlineStyles(text),
-  });
-}
-
-function isMarkdownTableStart(lines: string[], index: number): boolean {
-  return Boolean(lines[index]?.includes("|") && lines[index + 1] && isTableSeparator(lines[index + 1]));
-}
-
-function collectTableLines(lines: string[], startIndex: number): string[] {
-  const tableLines: string[] = [];
-  for (let index = startIndex; index < lines.length; index += 1) {
-    if (!lines[index].includes("|")) break;
-    tableLines.push(lines[index]);
-  }
-  return tableLines;
-}
-
-function createTable(lines: string[]): Table {
-  const rows = lines
-    .filter((line) => !isTableSeparator(line))
-    .map(parseTableRow)
-    .filter((cells) => cells.length > 0);
-
-  return new Table({
-    width: {
-      size: 100,
-      type: WidthType.PERCENTAGE,
-    },
-    rows: rows.map((cells) =>
-      new TableRow({
-        children: cells.map((cell) =>
-          new TableCell({
-            children: [
-              new Paragraph({
-                children: parseInlineStyles(cell),
-              }),
-            ],
-          })
-        ),
-      })
-    ),
-  });
-}
-
-function parseTableRow(line: string): string[] {
-  return line
-    .trim()
-    .replace(/^\|/, "")
-    .replace(/\|$/, "")
-    .split("|")
-    .map((cell) => cleanInlineMarkdown(cell.trim()));
-}
-
-function isTableSeparator(line: string): boolean {
-  return /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
-}
-
-function parseInlineStyles(text: string): TextRun[] {
-  const runs: TextRun[] = [];
-  const cleanedText = cleanInlineMarkdown(text);
-  const regex = /\*\*(.*?)\*\*/g;
-  let lastIndex = 0;
-  let match;
-
-  while ((match = regex.exec(cleanedText)) !== null) {
-    if (match.index > lastIndex) {
-      runs.push(new TextRun({ text: cleanedText.slice(lastIndex, match.index) }));
-    }
-    runs.push(new TextRun({ text: match[1], bold: true }));
-    lastIndex = regex.lastIndex;
-  }
-
-  if (lastIndex < cleanedText.length) {
-    runs.push(new TextRun({ text: cleanedText.slice(lastIndex) }));
-  }
-
-  return runs.length > 0 ? runs : [new TextRun({ text: cleanedText })];
-}
-
-function cleanInlineMarkdown(text: string): string {
-  return text
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/\$([^$\n]+)\$/g, "$1");
-}
-
-export function downloadDocx(blob: Blob, filename: string = "math-chat.docx") {
+export function downloadDocx(blob: Blob, filename: string = "math-chat.doc") {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = filename;
+  a.download = getWordExportFilename(filename);
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+function createRenderedContentHtml(element: HTMLElement) {
+  const clone = element.cloneNode(true) as HTMLElement;
+  removeHiddenMath(clone);
+  trimUiOnlyAttributes(clone);
+  inlineRenderedStyles(element, clone);
+  return clone.innerHTML;
+}
+
+function inlineRenderedStyles(source: HTMLElement, clone: HTMLElement) {
+  const sourceNodes = [source, ...Array.from(source.querySelectorAll("*"))];
+  const cloneNodes = [clone, ...Array.from(clone.querySelectorAll("*"))];
+
+  sourceNodes.forEach((sourceNode, index) => {
+    const cloneNode = cloneNodes[index];
+
+    if (!cloneNode || !isStylableElement(cloneNode)) return;
+
+    const shouldInline = isKatexNode(sourceNode) || isCoreContentNode(sourceNode);
+    if (!shouldInline) return;
+
+    const computedStyle = window.getComputedStyle(sourceNode);
+
+    for (const property of WORD_EXPORT_STYLE_PROPERTIES) {
+      const value = computedStyle.getPropertyValue(property);
+      if (value) {
+        cloneNode.style.setProperty(property, value);
+      }
+    }
+  });
+}
+
+function isKatexNode(node: Element) {
+  return Boolean(
+    node.closest(".katex, .katex-display") ||
+    node.classList.contains("katex") ||
+    node.classList.contains("katex-display")
+  );
+}
+
+function isCoreContentNode(node: Element) {
+  return /^(P|H1|H2|H3|H4|H5|H6|UL|OL|LI|TABLE|THEAD|TBODY|TR|TH|TD|BLOCKQUOTE|PRE|CODE|HR)$/i
+    .test(node.tagName);
+}
+
+function isStylableElement(node: Element): node is HTMLElement | SVGElement {
+  return node instanceof HTMLElement || node instanceof SVGElement;
+}
+
+function removeHiddenMath(root: HTMLElement) {
+  root.querySelectorAll(".katex-mathml, annotation").forEach((node) => {
+    node.remove();
+  });
+}
+
+function trimUiOnlyAttributes(root: HTMLElement) {
+  root.querySelectorAll("*").forEach((node) => {
+    node.removeAttribute("data-state");
+    node.removeAttribute("aria-hidden");
+    node.removeAttribute("class");
+  });
+}
+
+function createFallbackContentHtml(content: string) {
+  return normalizeMathMarkdown(content)
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${formatFallbackInline(paragraph)}</p>`)
+    .join("");
+}
+
+function formatFallbackInline(value: string) {
+  return escapeHtml(value)
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(/\$([^$\n]+)\$/g, '<span style="font-family: Cambria Math, serif;">$1</span>')
+    .replace(/\n/g, "<br>");
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }

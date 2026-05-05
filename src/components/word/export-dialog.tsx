@@ -19,7 +19,7 @@ import {
   type ExportDraftId,
 } from "@/lib/export-drafts";
 import { getApiUrl, hasRuntimeApi } from "@/lib/api-url";
-import { generateDocx, downloadDocx } from "@/lib/docx-generator";
+import { generateDocx, downloadDocx, getWordExportFilename } from "@/lib/docx-generator";
 import { cn } from "@/lib/utils";
 
 interface ExportDialogProps {
@@ -47,6 +47,7 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
     () => readCachedDraftStates()
   );
   const loadingKeysRef = useRef(new Set<string>());
+  const previewRef = useRef<HTMLDivElement>(null);
 
   const contentKey = useMemo(
     () => content ? createExportCacheKey(content, request) : "",
@@ -137,7 +138,7 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
 
     setIsExporting(true);
     try {
-      const blob = await generateDocx(selectedDraft.content, selectedDraft.title);
+      const blob = await generateDocx(selectedDraft.content, selectedDraft.title, previewRef.current);
       downloadDocx(blob, selectedDraft.filename);
       onClose();
     } catch (error) {
@@ -167,7 +168,7 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
                 </DialogDescription>
               </div>
               <div className="hidden rounded-full border bg-[hsl(var(--muted))] px-3 py-1 text-xs text-muted-foreground md:block">
-                Word .docx
+                Word .doc
               </div>
             </div>
           </DialogHeader>
@@ -232,7 +233,7 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
                   </div>
                   {selectedDraft && (
                     <div className="rounded-lg border px-3 py-2 text-xs text-muted-foreground">
-                      {selectedDraft.filename}
+                      {getWordExportFilename(selectedDraft.filename)}
                     </div>
                   )}
                 </div>
@@ -254,7 +255,7 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
 
               <div className="min-h-0 flex-1 overflow-y-auto bg-[hsl(var(--card))] p-5">
                 {selectedDraft ? (
-                  <div className="mx-auto max-w-3xl rounded-2xl border bg-[hsl(var(--background))] p-5 shadow-sm">
+                  <div ref={previewRef} className="mx-auto max-w-3xl rounded-2xl border bg-[hsl(var(--background))] p-5 shadow-sm">
                     <MathRenderer content={selectedDraft.content} />
                   </div>
                 ) : (
