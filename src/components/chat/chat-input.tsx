@@ -19,15 +19,21 @@ import {
 import { generateId } from "@/lib/math-utils";
 import { cn } from "@/lib/utils";
 import type { ChatAttachment, DocumentAttachment, ImageAttachment } from "@/types";
-import { FormulaStudio } from "./formula-studio";
+import { FormulaStudio, type FormulaInsertPayload } from "./formula-studio";
+import { MathRenderer } from "./math-renderer";
 
 interface ChatInputProps {
   onSend: (message: string, attachments?: ChatAttachment[]) => void;
   isLoading: boolean;
 }
 
+interface FormulaChip extends FormulaInsertPayload {
+  id: string;
+}
+
 export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   const [input, setInput] = useState("");
+  const [formulaChips, setFormulaChips] = useState<FormulaChip[]>([]);
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -160,9 +166,15 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   };
 
   const handleSubmit = () => {
-    if ((!input.trim() && attachments.length === 0) || isLoading || isProcessingFiles) return;
-    onSend(input, attachments);
+    if ((!input.trim() && attachments.length === 0 && formulaChips.length === 0) || isLoading || isProcessingFiles) return;
+    const contentToSend = [
+      input.trim(),
+      ...formulaChips.map((formula) => formula.markdown.trim()),
+    ].filter(Boolean).join("\n\n");
+
+    onSend(contentToSend, attachments);
     setInput("");
+    setFormulaChips([]);
     setAttachments([]);
     setAttachmentError(null);
     if (textareaRef.current) {
@@ -170,29 +182,19 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     }
   };
 
-  const insertTextAtCursor = (value: string) => {
-    const textarea = textareaRef.current;
+  const insertFormulaChip = (value: FormulaInsertPayload) => {
+    setFormulaChips((current) => [
+      ...current,
+      {
+        ...value,
+        id: generateId(),
+      },
+    ]);
+    window.requestAnimationFrame(() => textareaRef.current?.focus());
+  };
 
-    setInput((current) => {
-      if (!textarea) return `${current}${value}`;
-
-      const start = textarea.selectionStart ?? current.length;
-      const end = textarea.selectionEnd ?? current.length;
-      const prefix = current.slice(0, start);
-      const suffix = current.slice(end);
-      const next = `${prefix}${prefix && !prefix.endsWith("\n") ? "\n" : ""}${value}${suffix ? "\n" : ""}${suffix}`;
-      const cursor = next.length - suffix.length - (suffix ? 1 : 0);
-
-      window.requestAnimationFrame(() => {
-        textarea.focus();
-        textarea.selectionStart = cursor;
-        textarea.selectionEnd = cursor;
-        textarea.style.height = "auto";
-        textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
-      });
-
-      return next;
-    });
+  const removeFormulaChip = (id: string) => {
+    setFormulaChips((current) => current.filter((formula) => formula.id !== id));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -202,7 +204,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     }
   };
 
-  const canSend = (input.trim().length > 0 || attachments.length > 0) && !isLoading && !isProcessingFiles;
+  const canSend = (input.trim().length > 0 || attachments.length > 0 || formulaChips.length > 0) && !isLoading && !isProcessingFiles;
 
   return (
     <div className="shrink-0 bg-background px-3 pb-3 pt-2 md:px-6 md:pb-5">
@@ -216,6 +218,18 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
         >
+          {formulaChips.length > 0 && (
+            <div className="mb-3 grid gap-2 px-1">
+              {formulaChips.map((formula) => (
+                <FormulaPreviewChip
+                  key={formula.id}
+                  formula={formula}
+                  onRemove={() => removeFormulaChip(formula.id)}
+                />
+              ))}
+            </div>
+          )}
+
           {attachments.length > 0 && (
             <div className="mb-3 flex flex-wrap gap-2 px-1">
               {attachments.map((attachment) => (
@@ -315,8 +329,29 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
       <FormulaStudio
         open={isFormulaStudioOpen}
         onOpenChange={setIsFormulaStudioOpen}
-        onInsert={insertTextAtCursor}
+        onInsert={insertFormulaChip}
       />
+    </div>
+  );
+}
+
+function FormulaPreviewChip({
+  formula,
+  onRemove,
+}: {
+  formula: FormulaChip;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="group relative rounded-2xl border bg-muted px-3 py-2 pr-10">
+      <div
+        data-font={formula.font}
+        data-italic={formula.isItalic ? "on" : "off"}
+        className="formula-chat-chip-preview min-w-0 overflow-x-auto text-[15px]"
+      >
+        <MathRenderer content={formula.markdown} />
+      </div>
+      <RemoveAttachmentButton onRemove={onRemove} label="Xóa công thức" />
     </div>
   );
 }

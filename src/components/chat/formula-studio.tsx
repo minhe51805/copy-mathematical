@@ -19,18 +19,43 @@ import { MathRenderer } from "./math-renderer";
 interface FormulaStudioProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onInsert: (value: string) => void;
+  onInsert: (value: FormulaInsertPayload) => void;
 }
 
-type FormulaFont = "katex" | "cambria" | "times" | "arial" | "mono";
+export type FormulaFont =
+  | "katex"
+  | "cambria"
+  | "latin-modern"
+  | "stix"
+  | "xits"
+  | "noto-serif"
+  | "times"
+  | "georgia"
+  | "arial"
+  | "system"
+  | "mono";
+
+export interface FormulaInsertPayload {
+  markdown: string;
+  latex: string;
+  font: FormulaFont;
+  isItalic: boolean;
+  isDisplay: boolean;
+}
 
 const DEFAULT_LATEX = "\\int_0^{\\frac{\\pi}{2}} f(x)\\,dx = 0";
 
 const FONT_OPTIONS: Array<{ value: FormulaFont; label: string }> = [
   { value: "katex", label: "KaTeX Math" },
   { value: "cambria", label: "Cambria Math" },
+  { value: "latin-modern", label: "Latin Modern Math" },
+  { value: "stix", label: "STIX Two Math" },
+  { value: "xits", label: "XITS Math" },
+  { value: "noto-serif", label: "Noto Serif Math" },
   { value: "times", label: "Times New Roman" },
+  { value: "georgia", label: "Georgia" },
   { value: "arial", label: "Arial" },
+  { value: "system", label: "System UI" },
   { value: "mono", label: "Consolas" },
 ];
 
@@ -138,7 +163,13 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
   };
 
   const handleInsert = () => {
-    onInsert(markdown);
+    onInsert({
+      markdown,
+      latex: latex.trim(),
+      font,
+      isItalic,
+      isDisplay,
+    });
     onOpenChange(false);
   };
 
@@ -158,44 +189,52 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
         <div className="grid min-h-0 flex-1 overflow-hidden md:grid-cols-[minmax(0,1fr)_320px]">
           <section className="flex min-h-0 flex-col border-b md:border-b-0 md:border-r">
             <div className="border-b bg-[hsl(var(--card))] p-4">
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <label className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2 text-sm">
+              <div className="mb-3 grid gap-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
                   <Type className="h-4 w-4 text-muted-foreground" />
-                  <select
-                    value={font}
-                    onChange={(event) => setFont(event.target.value as FormulaFont)}
-                    className="bg-transparent text-sm outline-none"
-                    aria-label="Chọn font công thức"
+                  Font công thức
+                </div>
+                <div className="flex max-w-full gap-2 overflow-x-auto rounded-xl border bg-background p-1">
+                  {FONT_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setFont(option.value)}
+                      className={cn(
+                        "h-8 shrink-0 rounded-lg px-3 text-sm transition-colors",
+                        font === option.value
+                          ? "bg-foreground text-background"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                      )}
+                      aria-pressed={font === option.value}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant={isItalic ? "default" : "outline"}
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setIsItalic((value) => !value)}
+                    aria-pressed={isItalic}
                   >
-                    {FONT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    <Italic className="h-4 w-4" />
+                    Nghiêng
+                  </Button>
 
-                <Button
-                  type="button"
-                  variant={isItalic ? "default" : "outline"}
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => setIsItalic((value) => !value)}
-                  aria-pressed={isItalic}
-                >
-                  <Italic className="h-4 w-4" />
-                  Nghiêng
-                </Button>
-
-                <Button
-                  type="button"
-                  variant={isDisplay ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setIsDisplay((value) => !value)}
-                  aria-pressed={isDisplay}
-                >
-                  {isDisplay ? "Block" : "Inline"}
-                </Button>
+                  <Button
+                    type="button"
+                    variant={isDisplay ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setIsDisplay((value) => !value)}
+                    aria-pressed={isDisplay}
+                  >
+                    {isDisplay ? "Block" : "Inline"}
+                  </Button>
+                </div>
               </div>
 
               <Textarea
