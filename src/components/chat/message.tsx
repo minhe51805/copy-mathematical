@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import { useRef, useState } from "react";
 import { Check, Copy, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -61,10 +62,31 @@ export function Message({ message, onExport }: MessageProps) {
               isUser ? "text-[#f4f4f4]" : "text-foreground"
             )}
           >
-            <MathRenderer
-              content={message.content}
-              isUser={isUser}
-            />
+            {message.attachments?.length ? (
+              <div className="mb-3 grid max-w-[22rem] grid-cols-2 gap-2">
+                {message.attachments.map((attachment) => (
+                  <a
+                    key={attachment.id}
+                    href={attachment.dataUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block overflow-hidden rounded-xl border border-white/10 bg-black/10"
+                  >
+                    <img
+                      src={attachment.dataUrl}
+                      alt={attachment.name}
+                      className="h-32 w-full object-cover"
+                    />
+                  </a>
+                ))}
+              </div>
+            ) : null}
+            {message.content.trim() ? (
+              <MathRenderer
+                content={message.content}
+                isUser={isUser}
+              />
+            ) : null}
           </div>
 
           <div

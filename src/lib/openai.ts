@@ -14,6 +14,15 @@ function getBaseURL(): string | undefined {
     );
   }
 
+  if (
+    /generativelanguage\.googleapis\.com/i.test(normalizedBaseURL) &&
+    !/\/openai$/i.test(normalizedBaseURL)
+  ) {
+    throw new Error(
+      "Gemini OpenAI-compatible endpoint must be OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/"
+    );
+  }
+
   return normalizedBaseURL;
 }
 

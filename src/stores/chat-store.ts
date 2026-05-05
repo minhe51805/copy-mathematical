@@ -63,7 +63,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const { messages, conversations, currentConversationId } = get();
     if (messages.length === 0) return;
 
-    const title = messages[0]?.content?.slice(0, 50) || "New Chat";
+    const title = messages[0]?.content?.slice(0, 50) || "New chat";
     const updatedConversations = conversations.map((conv) =>
       conv.id === currentConversationId
         ? { ...conv, messages, updatedAt: Date.now() }

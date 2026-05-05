@@ -2,6 +2,24 @@ import { getOpenAI } from "@/lib/openai";
 import { SYSTEM_PROMPT } from "@/lib/prompts";
 import { createCorsPreflightResponse, getCorsHeaders } from "@/lib/cors";
 import { NextRequest, NextResponse } from "next/server";
+import type {
+  ChatCompletionContentPart,
+  ChatCompletionMessageParam,
+} from "openai/resources/chat/completions";
+
+interface IncomingImageAttachment {
+  id?: string;
+  name?: string;
+  mimeType?: string;
+  dataUrl?: string;
+  size?: number;
+}
+
+interface IncomingMessage {
+  role: "user" | "assistant";
+  content: string;
+  attachments?: IncomingImageAttachment[];
+}
 
 export function OPTIONS(req: NextRequest) {
   return createCorsPreflightResponse(req);
@@ -11,7 +29,8 @@ export async function POST(req: NextRequest) {
   const corsHeaders = getCorsHeaders(req);
 
   try {
-    const { messages } = await req.json();
+    const { messages } = await req.json() as { messages?: IncomingMessage[] };
+    const chatMessages = Array.isArray(messages) ? messages : [];
 
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
@@ -30,7 +49,7 @@ export async function POST(req: NextRequest) {
       model,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
-        ...messages,
+        ...chatMessages.map(toChatCompletionMessage),
       ],
       stream: true,
       temperature: 0.7,
@@ -70,4 +89,38 @@ export async function POST(req: NextRequest) {
       { status: 500, headers: corsHeaders }
     );
   }
+}
+
+function toChatCompletionMessage(message: IncomingMessage): ChatCompletionMessageParam {
+  const text = message.content?.trim() || "Đọc ảnh và trích xuất công thức/toán học trong ảnh.";
+  const imageParts = (message.attachments ?? [])
+    .filter((attachment) => isValidImageDataUrl(attachment.dataUrl))
+    .map((attachment): ChatCompletionContentPart => ({
+      type: "image_url",
+      image_url: {
+        url: attachment.dataUrl as string,
+      },
+    }));
+
+  if (message.role === "user" && imageParts.length > 0) {
+    return {
+      role: "user",
+      content: [
+        {
+          type: "text",
+          text,
+        },
+        ...imageParts,
+      ],
+    };
+  }
+
+  return {
+    role: message.role,
+    content: text,
+  };
+}
+
+function isValidImageDataUrl(value: unknown): value is string {
+  return typeof value === "string" && /^data:image\/[a-z0-9.+-]+;base64,/i.test(value);
 }
