@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef, useState } from "react";
 import { ArrowUp, FileText, Loader2, Paperclip, Sigma, Table2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +25,8 @@ import { MathRenderer } from "./math-renderer";
 interface ChatInputProps {
   onSend: (message: string, attachments?: ChatAttachment[]) => void;
   isLoading: boolean;
+  attachments: ChatAttachment[];
+  onAttachmentsChange: Dispatch<SetStateAction<ChatAttachment[]>>;
 }
 
 type FormulaChip = FormulaInsertPayload & {
@@ -32,10 +34,9 @@ type FormulaChip = FormulaInsertPayload & {
   attachmentId?: string;
 };
 
-export function ChatInput({ onSend, isLoading }: ChatInputProps) {
+export function ChatInput({ onSend, isLoading, attachments, onAttachmentsChange }: ChatInputProps) {
   const [input, setInput] = useState("");
   const [formulaChips, setFormulaChips] = useState<FormulaChip[]>([]);
-  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [isProcessingFiles, setIsProcessingFiles] = useState(false);
@@ -124,7 +125,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     }
 
     if (nextAttachments.length) {
-      setAttachments((current) => [...current, ...nextAttachments].slice(0, MAX_ATTACHMENTS));
+      onAttachmentsChange((current) => [...current, ...nextAttachments].slice(0, MAX_ATTACHMENTS));
       textareaRef.current?.focus();
     }
 
@@ -133,7 +134,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-  }, [attachments.length]);
+  }, [attachments.length, onAttachmentsChange]);
 
   useEffect(() => {
     const resetDragState = () => {
@@ -226,7 +227,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   };
 
   const removeAttachment = (id: string) => {
-    setAttachments((current) => current.filter((attachment) => attachment.id !== id));
+    onAttachmentsChange((current) => current.filter((attachment) => attachment.id !== id));
   };
 
   const handleSubmit = () => {
@@ -243,7 +244,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     onSend(contentToSend, attachments);
     setInput("");
     setFormulaChips([]);
-    setAttachments([]);
+    onAttachmentsChange([]);
     setAttachmentError(null);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -258,7 +259,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
       }
 
       const attachmentId = generateId();
-      setAttachments((current) => [
+      onAttachmentsChange((current) => [
         ...current,
         {
           id: attachmentId,
@@ -295,7 +296,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     setFormulaChips((current) => {
       const removed = current.find((formula) => formula.id === id);
       if (removed?.kind === "drawing" && removed.attachmentId) {
-        setAttachments((attachmentsValue) =>
+        onAttachmentsChange((attachmentsValue) =>
           attachmentsValue.filter((attachment) => attachment.id !== removed.attachmentId)
         );
       }

@@ -45,6 +45,7 @@ export interface ChatStore {
   isLoading: boolean;
   addMessage: (message: Message) => void;
   updateMessage: (id: string, content: string) => void;
+  removeAttachment: (attachmentId: string) => void;
   clearMessages: () => void;
   setLoading: (loading: boolean) => void;
   saveConversation: () => void;

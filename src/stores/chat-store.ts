@@ -51,6 +51,29 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }));
   },
 
+  removeAttachment: (attachmentId: string) => {
+    const { messages, conversations, currentConversationId } = get();
+    const nextMessages = messages.map((message) => ({
+      ...message,
+      attachments: message.attachments?.filter((attachment) => attachment.id !== attachmentId),
+    }));
+
+    const nextConversations = conversations.map((conversation) =>
+      conversation.id === currentConversationId
+        ? { ...conversation, messages: nextMessages, updatedAt: Date.now() }
+        : conversation
+    );
+
+    set({
+      messages: nextMessages,
+      conversations: nextConversations,
+    });
+
+    if (currentConversationId) {
+      saveToStorage(nextConversations);
+    }
+  },
+
   clearMessages: () => {
     set({ messages: [] });
   },
