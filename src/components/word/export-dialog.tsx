@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Download, FileText, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,13 +34,22 @@ interface DraftLoadState {
   error?: string | null;
 }
 
+const EXPORT_DRAFT_CACHE_KEY = "math-chat-export-draft-cache-v1";
+const MAX_CACHED_EXPORTS = 20;
+
 export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
   const [isExporting, setIsExporting] = useState(false);
-  const [selectedDraftId, setSelectedDraftId] = useState<ExportDraftId>("original");
-  const [draftLoadState, setDraftLoadState] = useState<DraftLoadState | null>(null);
+  const [selectedDraftState, setSelectedDraftState] = useState<{
+    contentKey: string;
+    draftId: ExportDraftId;
+  }>({ contentKey: "", draftId: "original" });
+  const [draftLoadStates, setDraftLoadStates] = useState<Record<string, DraftLoadState>>(
+    () => readCachedDraftStates()
+  );
+  const loadingKeysRef = useRef(new Set<string>());
 
   const contentKey = useMemo(
-    () => content ? `${content}\n---request---\n${request ?? ""}` : "",
+    () => content ? createExportCacheKey(content, request) : "",
     [content, request]
   );
 
@@ -49,18 +58,29 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
     [content, request]
   );
 
-  const loadedDrafts = draftLoadState?.key === contentKey ? draftLoadState.drafts : [];
-  const isLoadingDrafts = Boolean(content && draftLoadState?.key !== contentKey);
+  const draftLoadState = contentKey ? draftLoadStates[contentKey] ?? null : null;
+  const loadedDrafts = draftLoadState?.drafts ?? [];
+  const isLoadingDrafts = Boolean(content && !draftLoadState);
   const drafts = originalDraft ? [originalDraft, ...loadedDrafts] : [];
+  const selectedDraftId = selectedDraftState.contentKey === contentKey
+    ? selectedDraftState.draftId
+    : "original";
   const selectedDraft = drafts.find((draft) => draft.id === selectedDraftId) ?? drafts[0] ?? null;
-  const loadError = draftLoadState?.key === contentKey ? draftLoadState.error : null;
+  const loadError = draftLoadState?.error ?? null;
 
   useEffect(() => {
-    if (!content) return;
+    if (!content || !contentKey || draftLoadState || loadingKeysRef.current.has(contentKey)) return;
 
     let cancelled = false;
     const sourceContent = content;
     const sourceRequest = request;
+    const loadingKeys = loadingKeysRef.current;
+    loadingKeys.add(contentKey);
+
+    const saveDraftState = (state: DraftLoadState) => {
+      setDraftLoadStates((current) => ({ ...current, [contentKey]: state }));
+      writeCachedDraftState(state);
+    };
 
     async function loadDrafts() {
       try {
@@ -84,7 +104,7 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
           : createFallbackExportDrafts({ content: sourceContent, request: sourceRequest });
 
         if (!cancelled) {
-          setDraftLoadState({
+          saveDraftState({
             key: contentKey,
             drafts: variants.slice(0, 3),
             error: null,
@@ -93,12 +113,14 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
       } catch (error) {
         console.error("Failed to create export variants:", error);
         if (!cancelled) {
-          setDraftLoadState({
+          saveDraftState({
             key: contentKey,
             drafts: createFallbackExportDrafts({ content: sourceContent, request: sourceRequest }),
             error: "Không tạo được phiên bản AI, đang dùng bản dự phòng.",
           });
         }
+      } finally {
+        loadingKeys.delete(contentKey);
       }
     }
 
@@ -106,8 +128,9 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
 
     return () => {
       cancelled = true;
+      loadingKeys.delete(contentKey);
     };
-  }, [content, contentKey, request]);
+  }, [content, contentKey, draftLoadState, request]);
 
   const handleExport = async () => {
     if (!selectedDraft) return;
@@ -167,7 +190,7 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
                         draft={draft}
                         index={index}
                         selected={selectedDraft?.id === draft.id}
-                        onSelect={() => setSelectedDraftId(draft.id)}
+                        onSelect={() => setSelectedDraftState({ contentKey, draftId: draft.id })}
                       />
                     ))}
 
@@ -315,4 +338,118 @@ function LoadingDraftOption({ label }: { label: string }) {
       {label}
     </div>
   );
+}
+
+interface CachedDraftState {
+  key: string;
+  drafts: ExportDraft[];
+  error?: string | null;
+  updatedAt: number;
+}
+
+function createExportCacheKey(content: string, request?: string | null) {
+  const source = `${content}\n---request---\n${request ?? ""}`;
+  return `${hashString(source)}-${content.length}-${request?.length ?? 0}`;
+}
+
+function readCachedDraftStates(): Record<string, DraftLoadState> {
+  const cachedStates = readCachedDraftStore();
+
+  return Object.fromEntries(
+    Object.values(cachedStates)
+      .filter(isUsableCachedDraftState)
+      .map((cachedState) => [
+        cachedState.key,
+        {
+          key: cachedState.key,
+          drafts: cachedState.drafts,
+          error: cachedState.error ?? null,
+        },
+      ])
+  );
+}
+
+function writeCachedDraftState(state: DraftLoadState) {
+  if (typeof window === "undefined" || !state.drafts.length) return;
+
+  try {
+    const cachedStore = readCachedDraftStore();
+    cachedStore[state.key] = {
+      key: state.key,
+      drafts: state.drafts,
+      error: state.error ?? null,
+      updatedAt: Date.now(),
+    };
+
+    const trimmedStore = Object.fromEntries(
+      Object.entries(cachedStore)
+        .sort(([, a], [, b]) => b.updatedAt - a.updatedAt)
+        .slice(0, MAX_CACHED_EXPORTS)
+    );
+
+    localStorage.setItem(EXPORT_DRAFT_CACHE_KEY, JSON.stringify(trimmedStore));
+  } catch {
+    // Export drafts are a convenience cache. If storage is full, the app can still recreate them.
+  }
+}
+
+function readCachedDraftStore(): Record<string, CachedDraftState> {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const value = localStorage.getItem(EXPORT_DRAFT_CACHE_KEY);
+    if (!value) return {};
+
+    const parsed = JSON.parse(value) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+
+    return parsed as Record<string, CachedDraftState>;
+  } catch {
+    return {};
+  }
+}
+
+function isUsableCachedDraftState(value: unknown): value is CachedDraftState {
+  return Boolean(
+    value
+      && typeof value === "object"
+      && "key" in value
+      && typeof value.key === "string"
+      && "drafts" in value
+      && Array.isArray(value.drafts)
+      && value.drafts.length > 0
+      && value.drafts.every(isExportDraft)
+  );
+}
+
+function isExportDraft(value: unknown): value is ExportDraft {
+  return Boolean(
+    value
+      && typeof value === "object"
+      && "id" in value
+      && typeof value.id === "string"
+      && "title" in value
+      && typeof value.title === "string"
+      && "description" in value
+      && typeof value.description === "string"
+      && "filename" in value
+      && typeof value.filename === "string"
+      && "content" in value
+      && typeof value.content === "string"
+      && "source" in value
+      && typeof value.source === "string"
+  );
+}
+
+function hashString(value: string) {
+  let hash = 2166136261;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return (hash >>> 0).toString(36);
 }
