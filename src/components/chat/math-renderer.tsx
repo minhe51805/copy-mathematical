@@ -322,7 +322,7 @@ function splitCopyableQuestionSections(content: string): CopyableSegment[] {
 }
 
 function isQuestionSectionStart(line: string) {
-  return /^\s*(?:#{1,6}\s*)?(?:[*_]{0,2})?(?:câu|cau|bài|bai)\s*\d+[\s.:：-]/i.test(line.trim());
+  return /^\s*(?:#{1,6}\s*)?(?:[*_`~]{0,2})?\s*(?:câu|cau|bài|bai)\s*\d+(?:\b|[\s.:：\-–—)])/i.test(line.trim());
 }
 
 function inferSectionLabel(content: string) {
