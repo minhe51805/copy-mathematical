@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowUp, FileText, Loader2, Paperclip, Sigma, Table2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,6 +42,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   const [isFormulaStudioOpen, setIsFormulaStudioOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragDepthRef = useRef(0);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -61,7 +62,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     };
   }, []);
 
-  const handleFiles = async (files: Iterable<File> | FileList | null) => {
+  const handleFiles = useCallback(async (files: Iterable<File> | FileList | null) => {
     if (!files) return;
 
     const fileList = Array.from(files);
@@ -132,7 +133,67 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-  };
+  }, [attachments.length]);
+
+  useEffect(() => {
+    const resetDragState = () => {
+      dragDepthRef.current = 0;
+      setIsDraggingFile(false);
+    };
+
+    const handleWindowDragEnter = (event: DragEvent) => {
+      if (!event.dataTransfer || !hasDraggedFile(event.dataTransfer)) return;
+
+      event.preventDefault();
+      dragDepthRef.current += 1;
+      setIsDraggingFile(true);
+    };
+
+    const handleWindowDragOver = (event: DragEvent) => {
+      if (!event.dataTransfer || !hasDraggedFile(event.dataTransfer)) return;
+
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+      setIsDraggingFile(true);
+    };
+
+    const handleWindowDragLeave = (event: DragEvent) => {
+      if (!event.dataTransfer || !hasDraggedFile(event.dataTransfer)) return;
+
+      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+      const leftWindow =
+        event.clientX <= 0 ||
+        event.clientY <= 0 ||
+        event.clientX >= window.innerWidth ||
+        event.clientY >= window.innerHeight;
+
+      if (dragDepthRef.current === 0 || leftWindow) {
+        resetDragState();
+      }
+    };
+
+    const handleWindowDrop = (event: DragEvent) => {
+      if (!event.dataTransfer || !hasDraggedFile(event.dataTransfer)) return;
+
+      event.preventDefault();
+      resetDragState();
+      void handleFiles(event.dataTransfer.files);
+    };
+
+    window.addEventListener("dragenter", handleWindowDragEnter);
+    window.addEventListener("dragover", handleWindowDragOver);
+    window.addEventListener("dragleave", handleWindowDragLeave);
+    window.addEventListener("drop", handleWindowDrop);
+    window.addEventListener("blur", resetDragState);
+
+    return () => {
+      window.removeEventListener("dragenter", handleWindowDragEnter);
+      window.removeEventListener("dragover", handleWindowDragOver);
+      window.removeEventListener("dragleave", handleWindowDragLeave);
+      window.removeEventListener("drop", handleWindowDrop);
+      window.removeEventListener("blur", resetDragState);
+    };
+  }, [handleFiles]);
 
   const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const files = Array.from(event.clipboardData.files).filter(isSupportedAttachmentFile);
@@ -145,6 +206,8 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
+    event.stopPropagation();
+    dragDepthRef.current = 0;
     setIsDraggingFile(false);
     void handleFiles(event.dataTransfer.files);
   };
@@ -258,6 +321,23 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
 
   return (
     <div className="shrink-0 bg-background px-3 pb-3 pt-2 md:px-6 md:pb-5">
+      {isDraggingFile && (
+        <div className="pointer-events-none fixed inset-0 z-[100] flex items-center justify-center bg-background/80 p-6 backdrop-blur-sm">
+          <div className="flex w-full max-w-lg flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-foreground/40 bg-card px-6 py-10 text-center shadow-lg">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-foreground">
+              {isProcessingFiles ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                <Paperclip className="h-6 w-6" />
+              )}
+            </div>
+            <div>
+              <p className="text-base font-semibold">Thả file để thêm vào chat</p>
+              <p className="mt-1 text-sm text-muted-foreground">Ảnh, PDF, DOCX, Excel hoặc CSV</p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="mx-auto w-full max-w-3xl">
         <div
           className={cn(
