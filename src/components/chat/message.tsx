@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useRef, useState } from "react";
-import { Check, ChevronDown, Copy, Download, FileText, Table2 } from "lucide-react";
+import { Check, Copy, Download, FileText, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { copyRenderedContent, writeRenderedSelectionToClipboard } from "@/lib/clipboard";
@@ -85,13 +85,6 @@ export function Message({ message, onExport }: MessageProps) {
             ) : null}
           </div>
 
-          {!isUser && message.content.trim() && onExport && (
-            <ExportDocumentCard
-              content={message.content}
-              onOpen={handleExport}
-            />
-          )}
-
           <div
             className={cn(
               "mt-2 flex items-center gap-1 opacity-70 transition-opacity group-hover/message:opacity-100",
@@ -157,63 +150,6 @@ export function Message({ message, onExport }: MessageProps) {
       </div>
     </TooltipProvider>
   );
-}
-
-function ExportDocumentCard({
-  content,
-  onOpen,
-}: {
-  content: string;
-  onOpen: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="mt-4 flex w-full max-w-[25rem] items-center justify-between gap-3 rounded-lg border bg-card p-3 text-left shadow-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      aria-label="Mở modal xuất nội dung câu trả lời này"
-    >
-      <span className="flex min-w-0 items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background text-muted-foreground">
-          <FileText className="h-5 w-5" />
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold">
-            {getExportDocumentTitle(content)}
-          </span>
-          <span className="block truncate text-xs text-muted-foreground">
-            Document · Word
-          </span>
-        </span>
-      </span>
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border bg-background px-3 py-1.5 text-sm text-foreground">
-        Open
-        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-      </span>
-    </button>
-  );
-}
-
-function getExportDocumentTitle(content: string) {
-  const firstUsefulLine = content
-    .split("\n")
-    .map((line) => line
-      .replace(/^#{1,6}\s*/, "")
-      .replace(/[*_`>|-]/g, "")
-      .trim()
-    )
-    .find((line) => line.length > 0 && !line.startsWith("\\[") && !line.startsWith("$$"));
-
-  if (!firstUsefulLine) {
-    return "Câu trả lời AI.doc";
-  }
-
-  const compactTitle = firstUsefulLine
-    .replace(/\s+/g, " ")
-    .slice(0, 42)
-    .trim();
-
-  return `${compactTitle}${firstUsefulLine.length > 42 ? "..." : ""}.doc`;
 }
 
 function MessageAttachment({

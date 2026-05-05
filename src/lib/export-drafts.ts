@@ -14,21 +14,30 @@ interface CreateExportDraftsInput {
   request?: string | null;
 }
 
-const EXPORT_INTENT_PATTERN =
-  /\b(xuất|xuat|export|download|tải|tai|file|tệp|tep|word|docx|document|tài liệu|tai lieu|canvas)\b/i;
+const EXPORT_ACTION_PATTERN =
+  /\b(xuat|export|download|tao|lam|in)\b|\btai(?!\s+lieu)\b/i;
+
+const EXPORT_TARGET_PATTERN =
+  /\b(file|tep|word|docx|document|tai lieu|ban word|ra file|ra word|noi dung tren|noi dung nay|cau tren|cau nay|bai tren|bai nay|cai tren|cai nay|phan tren|phan nay|doan tren|doan nay|canvas)\b/i;
 
 const EXPORT_ONLY_PATTERN =
-  /^\s*(hãy|hay|giúp|giup|cho|làm|lam|tạo|tao|xuất|xuat|export|download|tải|tai|in)?\s*(mình|minh|tôi|toi|tui|em|cho tôi|cho tui)?\s*(xuất|xuat|export|download|tải|tai|tạo|tao|làm|lam)?\s*(file|tệp|tep|word|docx|document|tài liệu|tai lieu|bản word|ban word|ra file|ra word|nội dung trên|noi dung tren|câu trên|cau tren|bài trên|bai tren|cái trên|cai tren|phần trên|phan tren)\s*(nhé|nhe|đi|di|với|voi|giùm|gium|cho mình|cho tui|ạ|a|\.|!|\?)*\s*$/i;
+  /^\s*(hay|giup|cho)?\s*(minh|toi|tui|em|cho toi|cho tui)?\s*(xuat|export|download|tai|tao|lam|in)\s*(file|tep|word|docx|document|tai lieu|ban word|ra file|ra word|noi dung tren|noi dung nay|cau tren|cau nay|bai tren|bai nay|cai tren|cai nay|phan tren|phan nay|doan tren|doan nay)\s*(nhe|di|voi|gium|cho minh|cho tui|a|\.|!|\?)*\s*$/i;
 
 export function isExportRequest(message: string): boolean {
-  return EXPORT_INTENT_PATTERN.test(message);
+  const normalizedMessage = normalizeIntentText(message);
+  return EXPORT_ONLY_PATTERN.test(normalizedMessage)
+    || (
+      EXPORT_ACTION_PATTERN.test(normalizedMessage)
+      && EXPORT_TARGET_PATTERN.test(normalizedMessage)
+    );
 }
 
 export function isExportOnlyRequest(message: string): boolean {
-  return EXPORT_ONLY_PATTERN.test(message) || (
-    isExportRequest(message) &&
-    message.trim().split(/\s+/).length <= 8 &&
-    !/[=+\-*/^]|giải|giai|tính|tinh|chứng minh|chung minh|viết|viet|soạn|soan/i.test(message)
+  const normalizedMessage = normalizeIntentText(message);
+  return EXPORT_ONLY_PATTERN.test(normalizedMessage) || (
+    isExportRequest(message)
+    && normalizedMessage.trim().split(/\s+/).length <= 8
+    && !/[=+\-*/^]|giai|tinh|chung minh|viet|soan/i.test(normalizedMessage)
   );
 }
 
@@ -224,6 +233,17 @@ function extractHighlights(content: string): string[] {
 
 function isMarkdownTableSyntax(line: string): boolean {
   return /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line) || line.includes("|");
+}
+
+function normalizeIntentText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function normalizeFilename(filename: string | undefined, fallback: string): string {
