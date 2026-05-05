@@ -39,6 +39,21 @@ export function buildMessageTextWithAttachments(
   ].join("\n\n");
 }
 
+export function buildLocalDocumentCopyResponse(
+  userRequest: string,
+  attachments: TextAttachmentLike[] | undefined
+) {
+  const documentAttachments = (attachments ?? []).filter(isReadableDocumentAttachment);
+
+  if (!documentAttachments.length || !isFullCopyRequest(userRequest)) {
+    return null;
+  }
+
+  return documentAttachments
+    .map((attachment, index) => formatLocalDocumentCopy(attachment, index))
+    .join("\n\n---\n\n");
+}
+
 function createDocumentInstruction(
   userRequest: string,
   attachments: TextAttachmentLike[] | undefined
@@ -101,7 +116,41 @@ function escapeAttribute(value: string) {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
-function isFullCopyRequest(value: string) {
+export function isFullCopyRequest(value: string) {
   return /\b(đưa\s*ra\s*hết|dua\s*ra\s*het|toàn\s*bộ|toan\s*bo|full|chép|chep|copy|sao\s*chép|sao\s*chep|trích\s*hết|trich\s*het|trích\s*toàn\s*bộ|trich\s*toan\s*bo|lấy\s*hết|lay\s*het)\b/i
     .test(value);
+}
+
+function formatLocalDocumentCopy(
+  attachment: TextAttachmentLike & { extractedText: string },
+  index: number
+) {
+  const title = attachment.name?.trim() || `Tệp ${index + 1}`;
+  const metadata = [
+    attachment.pageCount ? `${attachment.pageCount} trang` : null,
+    attachment.sheetCount ? `${attachment.sheetCount} sheet` : null,
+    attachment.textLength ? `${attachment.textLength.toLocaleString("vi-VN")} ký tự` : null,
+  ].filter(Boolean).join(" · ");
+
+  return [
+    `# ${title}`,
+    metadata ? `_${metadata}_` : "",
+    attachment.truncated
+      ? "> Lưu ý: nội dung file này đã bị rút gọn trước khi hiển thị vì quá dài. Hãy chia nhỏ file nếu cần lấy đủ 100%."
+      : "",
+    normalizeExtractedCopyText(attachment.extractedText),
+  ].filter(Boolean).join("\n\n");
+}
+
+function normalizeExtractedCopyText(value: string) {
+  return value
+    .replace(/\u0000/g, "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/([^\n])\s+((?:Câu|Cau|Bài|Bai)\s*\d+(?:\b|[\s.:：\-–—)]))/gi, "$1\n\n$2")
+    .replace(/([^\n])\s+([A-D]\s*[\.)])\s+/g, "$1\n$2 ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .trim();
 }

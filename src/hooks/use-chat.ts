@@ -2,7 +2,10 @@
 
 import { useCallback } from "react";
 import { useChatStore } from "@/stores/chat-store";
-import { getDefaultPromptForAttachments } from "@/lib/attachment-content";
+import {
+  buildLocalDocumentCopyResponse,
+  getDefaultPromptForAttachments,
+} from "@/lib/attachment-content";
 import { getApiUrl, hasRuntimeApi } from "@/lib/api-url";
 import { generateId, sanitizeAssistantContent } from "@/lib/math-utils";
 import type { ChatAttachment } from "@/types";
@@ -52,6 +55,25 @@ export function useChat(options?: SendMessageOptions) {
       setLoading(true);
 
       try {
+        const localDocumentResponse = buildLocalDocumentCopyResponse(userMessage.content, attachments);
+
+        if (localDocumentResponse) {
+          const assistantContent = sanitizeAssistantContent(localDocumentResponse);
+          addMessage({
+            id: generateId(),
+            role: "assistant",
+            content: assistantContent,
+            timestamp: Date.now(),
+          });
+          saveConversation();
+          onFinish?.({
+            assistantContent,
+            previousAssistantContent,
+            userMessage: userMessage.content,
+          });
+          return;
+        }
+
         if (!hasRuntimeApi()) {
           throw new Error(
             "GitHub Pages chỉ chạy giao diện tĩnh nên không có API chat. NEXT_PUBLIC_API_BASE_URL phải là URL backend đã deploy, không phải OPENAI_API_KEY. Nếu muốn chạy đủ tính năng, deploy app bằng Vercel."
