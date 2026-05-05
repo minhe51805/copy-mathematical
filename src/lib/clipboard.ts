@@ -163,17 +163,28 @@ export function writeRenderedSelectionToClipboard(
     return false;
   }
 
+  const selectedMathElement = getSingleSelectedMathElement(root, selection);
   const container = document.createElement("div");
-  for (let index = 0; index < selection.rangeCount; index += 1) {
-    container.append(selection.getRangeAt(index).cloneContents());
+
+  if (selectedMathElement) {
+    container.append(selectedMathElement.cloneNode(true));
+  } else {
+    for (let index = 0; index < selection.rangeCount; index += 1) {
+      container.append(selection.getRangeAt(index).cloneContents());
+    }
   }
 
+  inlineSelectedKatexStyles(root, container);
+
   const html = createClipboardHtml(container);
-  const plainText = cleanupPlainText(selection.toString()) || stripMarkdown(normalizeMathMarkdown(fallbackMarkdown));
+  const plainText = selectedMathElement
+    ? getMathPlainText(selectedMathElement)
+    : getPlainText(container);
+  const fallbackText = stripMarkdown(normalizeMathMarkdown(fallbackMarkdown));
 
   event.preventDefault();
   event.clipboardData.setData("text/html", html);
-  event.clipboardData.setData("text/plain", plainText);
+  event.clipboardData.setData("text/plain", plainText || fallbackText);
   return true;
 }
 
@@ -260,6 +271,70 @@ function isSelectionInside(root: HTMLElement, selection: Selection) {
     root.contains(anchorNode) &&
     root.contains(focusNode)
   );
+}
+
+function getSingleSelectedMathElement(root: HTMLElement, selection: Selection) {
+  const anchorMath = getClosestSelectedMathElement(root, selection.anchorNode);
+  const focusMath = getClosestSelectedMathElement(root, selection.focusNode);
+
+  if (!anchorMath || !focusMath) return null;
+  if (anchorMath === focusMath) return anchorMath;
+  if (anchorMath.contains(focusMath)) return anchorMath;
+  if (focusMath.contains(anchorMath)) return focusMath;
+
+  return null;
+}
+
+function getClosestSelectedMathElement(root: HTMLElement, node: Node | null) {
+  const element = getNodeElement(node);
+  if (!element || !root.contains(element)) return null;
+
+  return element.closest<HTMLElement>(".katex-display, .katex");
+}
+
+function getNodeElement(node: Node | null) {
+  if (!node) return null;
+  return node instanceof Element ? node : node.parentElement;
+}
+
+function inlineSelectedKatexStyles(sourceRoot: HTMLElement, cloneRoot: HTMLElement) {
+  const sourceMathByLatex = new Map<string, HTMLElement[]>();
+
+  sourceRoot.querySelectorAll<HTMLElement>(".katex").forEach((node) => {
+    const latex = getKatexLatex(node);
+    if (!latex) return;
+
+    const list = sourceMathByLatex.get(latex) ?? [];
+    list.push(node);
+    sourceMathByLatex.set(latex, list);
+  });
+
+  cloneRoot.querySelectorAll<HTMLElement>(".katex").forEach((cloneMath) => {
+    const latex = getKatexLatex(cloneMath);
+    const sourceMath = latex ? sourceMathByLatex.get(latex)?.[0] : null;
+
+    if (sourceMath) {
+      inlineKatexStyles(sourceMath, cloneMath);
+    }
+  });
+}
+
+function getKatexLatex(node: Element) {
+  return node
+    .querySelector('annotation[encoding="application/x-tex"]')
+    ?.textContent
+    ?.trim() ?? "";
+}
+
+function getMathPlainText(node: Element) {
+  const innerMath = node.querySelector(".katex");
+  const latex = getKatexLatex(node) || (innerMath ? getKatexLatex(innerMath) : "");
+  if (latex) {
+    return node.classList.contains("katex-display") ? `$$\n${latex}\n$$` : `$${latex}$`;
+  }
+
+  const clone = node.cloneNode(true) as HTMLElement;
+  return getPlainText(clone);
 }
 
 function getPlainText(element: HTMLElement): string {

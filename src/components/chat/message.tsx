@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { Check, ChevronDown, Copy, Download, FileText, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { copyRenderedContent } from "@/lib/clipboard";
+import { copyRenderedContent, writeRenderedSelectionToClipboard } from "@/lib/clipboard";
 import { formatFileSize } from "@/lib/file-extraction";
 import { formatTimestamp } from "@/lib/math-utils";
 import type { ChatAttachment, DocumentAttachment, ImageAttachment, Message as MessageType } from "@/types";
@@ -58,6 +58,9 @@ export function Message({ message, onExport }: MessageProps) {
         >
           <div
             ref={contentRef}
+            onCopy={(event) => {
+              writeRenderedSelectionToClipboard(event.nativeEvent, contentRef.current, message.content);
+            }}
             className={cn(
               "text-[15px] leading-7",
               isUser ? "text-[#f4f4f4]" : "text-foreground"
