@@ -24,8 +24,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const { content, request } = await req.json();
+    const sanitizedContent = typeof content === "string" ? sanitizeAssistantContent(content) : "";
 
-    if (typeof content !== "string" || !content.trim()) {
+    if (!sanitizedContent.trim()) {
       return NextResponse.json(
         { error: "Missing content to export" },
         { status: 400, headers: corsHeaders }
@@ -34,22 +35,37 @@ export async function POST(req: NextRequest) {
 
     if (!process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
       return NextResponse.json(
-        { error: "API key not configured. Please set GEMINI_API_KEY or OPENAI_API_KEY in .env.local" },
-        { status: 500, headers: corsHeaders }
+        {
+          variants: createFallbackVariants(sanitizedContent, request),
+          warning: "Missing AI API key, using fallback export variants.",
+        },
+        { headers: corsHeaders }
       );
     }
 
-    const raw = shouldUseGeminiNative()
-      ? await generateGeminiText({
-          systemInstruction: getExportSystemPrompt(),
-          prompt: getExportUserPrompt(content, request),
-          temperature: 0.35,
-          json: true,
-        })
-      : await generateOpenAIExportText(content, request);
+    let raw = "";
+    try {
+      raw = shouldUseGeminiNative()
+        ? await generateGeminiText({
+            systemInstruction: getExportSystemPrompt(),
+            prompt: getExportUserPrompt(sanitizedContent, request),
+            temperature: 0.35,
+            json: true,
+          })
+        : await generateOpenAIExportText(sanitizedContent, request);
+    } catch (error) {
+      console.error("Export variants AI generation failed:", error);
+      return NextResponse.json(
+        {
+          variants: createFallbackVariants(sanitizedContent, request),
+          warning: "AI export variant generation failed, using fallback variants.",
+        },
+        { headers: corsHeaders }
+      );
+    }
 
     const parsed = parseJson(raw);
-    const variants = normalizeExportDrafts(parsed.variants ?? [], sanitizeAssistantContent(content), request);
+    const variants = normalizeExportDrafts(parsed.variants ?? [], sanitizedContent, request);
 
     return NextResponse.json({ variants }, { headers: corsHeaders });
   } catch (error) {
@@ -60,6 +76,10 @@ export async function POST(req: NextRequest) {
       { status: 500, headers: corsHeaders }
     );
   }
+}
+
+function createFallbackVariants(content: string, request?: string) {
+  return normalizeExportDrafts([], content, request);
 }
 
 async function generateOpenAIExportText(content: string, request?: string) {
@@ -85,33 +105,38 @@ async function generateOpenAIExportText(content: string, request?: string) {
 
 function getExportSystemPrompt() {
   return [
-    "Bạn tạo 3 phiên bản nội dung để người dùng chọn xuất ra Word.",
-    "Chỉ trả JSON hợp lệ, không markdown fence, không giải thích ngoài JSON.",
+    "Create 3 Vietnamese export variants for the user to choose and export to Word.",
+    "Return valid JSON only. Do not wrap it in markdown fences and do not add explanations outside JSON.",
     "Schema: {\"variants\":[{\"id\":\"ai-1\",\"title\":\"...\",\"description\":\"...\",\"filename\":\"...docx\",\"content\":\"markdown...\"}]}",
-    "Nội dung phải dùng Markdown GitHub, giữ công thức LaTeX bằng $...$ hoặc $$...$$.",
-    "3 phiên bản nên khác nhau rõ: bản tài liệu hoàn chỉnh, bản chi tiết/giảng giải, bản handout/ôn tập.",
-    "Không làm sai ý toán học của nội dung gốc.",
+    "Use GitHub-flavored Markdown. Preserve LaTeX math as $...$ or $$...$$.",
+    "Make the 3 variants clearly different: complete document, detailed explanation, study handout.",
+    "Do not change the mathematical meaning of the source content.",
   ].join("\n");
 }
 
 function getExportUserPrompt(content: string, request?: string) {
   return [
-    request ? `Yêu cầu xuất file của người dùng:\n${request}` : "",
-    "Nội dung gốc cần xuất:",
+    request ? `User export request:\n${request}` : "",
+    "Source content to export:",
     content,
   ].filter(Boolean).join("\n\n");
 }
 
 function parseJson(value: string): ExportVariantResponse {
-  const cleaned = value
-    .trim()
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/```$/i, "")
-    .trim();
+  try {
+    const cleaned = value
+      .trim()
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/```$/i, "")
+      .trim();
 
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  const jsonText = start >= 0 && end >= start ? cleaned.slice(start, end + 1) : cleaned;
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    const jsonText = start >= 0 && end >= start ? cleaned.slice(start, end + 1) : cleaned;
 
-  return JSON.parse(jsonText) as ExportVariantResponse;
+    return JSON.parse(jsonText) as ExportVariantResponse;
+  } catch (error) {
+    console.error("Failed to parse export variants JSON:", error);
+    return {};
+  }
 }
