@@ -14,6 +14,12 @@ Mo `http://localhost:3000`.
 Can tao `.env.local`:
 
 ```env
+# Gemini native SDK
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-3-flash-preview
+NEXT_PUBLIC_MODEL_NAME=Gemini
+
+# Hoac OpenAI-compatible providers
 OPENAI_API_KEY=...
 OPENAI_BASE_URL=...
 OPENAI_MODEL=...
@@ -21,7 +27,7 @@ OPENAI_MODEL=...
 
 ## Deploy day du tinh nang
 
-Ung dung nay co route server `/api/chat` va `/api/export-variants`, vi vay ban deploy day du nen dung Vercel/Netlify/Render hoac mot server Node.js co bien moi truong `OPENAI_API_KEY`.
+Ung dung nay co route server `/api/chat` va `/api/export-variants`, vi vay ban deploy day du nen dung Vercel/Netlify/Render hoac mot server Node.js co bien moi truong `GEMINI_API_KEY` hoac `OPENAI_API_KEY`.
 
 ## Deploy GitHub Pages
 

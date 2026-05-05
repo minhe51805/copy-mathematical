@@ -1,6 +1,7 @@
 import { getOpenAI } from "@/lib/openai";
 import { SYSTEM_PROMPT } from "@/lib/prompts";
 import { createCorsPreflightResponse, getCorsHeaders } from "@/lib/cors";
+import { createGeminiStream, shouldUseGeminiNative } from "@/lib/gemini";
 import { NextRequest, NextResponse } from "next/server";
 import type {
   ChatCompletionContentPart,
@@ -32,28 +33,16 @@ export async function POST(req: NextRequest) {
     const { messages } = await req.json() as { messages?: IncomingMessage[] };
     const chatMessages = Array.isArray(messages) ? messages : [];
 
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
       return NextResponse.json(
-        { error: "API key not configured. Please set OPENAI_API_KEY in .env.local" },
+        { error: "API key not configured. Please set GEMINI_API_KEY or OPENAI_API_KEY in .env.local" },
         { status: 500, headers: corsHeaders }
       );
     }
 
-    const openai = getOpenAI();
-    const model = process.env.OPENAI_MODEL || "gpt-4o";
-
-    console.log("Using model:", model);
-    console.log("Base URL:", process.env.OPENAI_BASE_URL || "default");
-
-    const stream = await openai.chat.completions.create({
-      model,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        ...chatMessages.map(toChatCompletionMessage),
-      ],
-      stream: true,
-      temperature: 0.7,
-    });
+    const stream = shouldUseGeminiNative()
+      ? await createGeminiStream(chatMessages, SYSTEM_PROMPT)
+      : await createOpenAIStream(chatMessages);
 
     const encoder = new TextEncoder();
 
@@ -61,7 +50,7 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         try {
           for await (const chunk of stream) {
-            const content = chunk.choices[0]?.delta?.content || "";
+            const content = getStreamChunkText(chunk);
             if (content) {
               controller.enqueue(encoder.encode(content));
             }
@@ -89,6 +78,44 @@ export async function POST(req: NextRequest) {
       { status: 500, headers: corsHeaders }
     );
   }
+}
+
+async function createOpenAIStream(messages: IncomingMessage[]) {
+  const openai = getOpenAI();
+  const model = process.env.OPENAI_MODEL || "gpt-4o";
+
+  console.log("Using OpenAI-compatible model:", model);
+  console.log("Base URL:", process.env.OPENAI_BASE_URL || "default");
+
+  return openai.chat.completions.create({
+    model,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      ...messages.map(toChatCompletionMessage),
+    ],
+    stream: true,
+    temperature: 0.7,
+  });
+}
+
+function getStreamChunkText(chunk: unknown): string {
+  if (isGeminiChunk(chunk)) {
+    return chunk.text ?? "";
+  }
+
+  if (isOpenAIChunk(chunk)) {
+    return chunk.choices[0]?.delta?.content ?? "";
+  }
+
+  return "";
+}
+
+function isGeminiChunk(chunk: unknown): chunk is { text?: string } {
+  return Boolean(chunk && typeof chunk === "object" && "text" in chunk);
+}
+
+function isOpenAIChunk(chunk: unknown): chunk is { choices: Array<{ delta?: { content?: string | null } }> } {
+  return Boolean(chunk && typeof chunk === "object" && "choices" in chunk);
 }
 
 function toChatCompletionMessage(message: IncomingMessage): ChatCompletionMessageParam {
