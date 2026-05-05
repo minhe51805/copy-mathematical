@@ -68,6 +68,16 @@ interface DrawingFormulaInsertPayload {
 
 export type FormulaInsertPayload = MathFormulaInsertPayload | DrawingFormulaInsertPayload;
 
+interface FormulaRecognitionDebug {
+  provider?: string;
+  hasFormulaGeminiKey?: boolean;
+  hasGeminiKey?: boolean;
+  hasOpenAIKey?: boolean;
+  openAIBaseUrlHost?: string | null;
+  openAIModel?: string | null;
+  formulaRecognitionModel?: string;
+}
+
 const DEFAULT_LATEX = "\\int_0^{\\frac{\\pi}{2}} f(x)\\,dx = 0";
 const DRAWING_WIDTH = 920;
 const DRAWING_HEIGHT = 300;
@@ -157,6 +167,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
   const [recognizedLatex, setRecognizedLatex] = useState("");
   const [recognitionState, setRecognitionState] = useState<"idle" | "waiting" | "loading" | "success" | "error" | "unavailable">("idle");
   const [recognitionError, setRecognitionError] = useState<string | null>(null);
+  const [recognitionHint, setRecognitionHint] = useState<string | null>(null);
   const [copied, setCopied] = useState<"rich" | "latex" | "drawing" | null>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -275,12 +286,14 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
     if (!canvas || !hasVisibleDrawing(canvas)) {
       setRecognizedLatex("");
       setRecognitionError(null);
+      setRecognitionHint(null);
       setRecognitionState("idle");
       return;
     }
 
     if (!hasRuntimeApi()) {
       setRecognitionState("unavailable");
+      setRecognitionHint(null);
       setRecognitionError("Live nhận dạng cần backend đang chạy.");
       return;
     }
@@ -289,6 +302,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
     recognitionRunRef.current = runId;
     setRecognitionState("loading");
     setRecognitionError(null);
+    setRecognitionHint(null);
 
     try {
       const response = await fetch(getApiUrl("/api/recognize-formula"), {
@@ -303,6 +317,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
         latex?: string;
         error?: string;
         warning?: string;
+        debug?: FormulaRecognitionDebug;
       };
 
       if (!response.ok) {
@@ -315,6 +330,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
         setRecognizedLatex("");
         setRecognitionState("error");
         setRecognitionError(data.error);
+        setRecognitionHint(getRecognitionDebugHint(data.debug));
         return;
       }
 
@@ -322,9 +338,11 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
       setRecognizedLatex(nextLatex);
       setRecognitionState(nextLatex ? "success" : data.warning ? "error" : "idle");
       setRecognitionError(nextLatex ? null : data.warning ?? null);
+      setRecognitionHint(nextLatex ? null : getRecognitionDebugHint(data.debug));
     } catch (error) {
       if (recognitionRunRef.current !== runId) return;
       setRecognitionState("error");
+      setRecognitionHint(null);
       setRecognitionError(error instanceof Error ? error.message : "Không nhận dạng được.");
     }
   };
@@ -338,12 +356,14 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
     if (!canvas || (!assumeHasDrawing && !hasVisibleDrawing(canvas))) {
       setRecognizedLatex("");
       setRecognitionError(null);
+      setRecognitionHint(null);
       setRecognitionState("idle");
       return;
     }
 
     if (!hasRuntimeApi()) {
       setRecognitionState("unavailable");
+      setRecognitionHint(null);
       setRecognitionError("Live nhận dạng cần Vercel/backend API.");
       return;
     }
@@ -415,6 +435,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
     initializeDrawingCanvas(canvas);
     setRecognizedLatex("");
     setRecognitionError(null);
+    setRecognitionHint(null);
     setRecognitionState("idle");
   };
 
@@ -652,7 +673,12 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
                     </div>
                   )}
                   {recognitionState === "error" && (
-                    <span className="text-destructive">{recognitionError ?? "Không nhận dạng được."}</span>
+                    <div className="space-y-1">
+                      <p className="text-destructive">{recognitionError ?? "Không nhận dạng được."}</p>
+                      {recognitionHint && (
+                        <p className="text-xs leading-5 text-muted-foreground">{recognitionHint}</p>
+                      )}
+                    </div>
                   )}
                   {recognitionState === "unavailable" && (
                     <span className="text-muted-foreground">{recognitionError}</span>
@@ -726,6 +752,23 @@ function buildFormulaMarkdown(latex: string, isDisplay: boolean) {
 
 function getFontLabel(font: FormulaFont) {
   return FONT_OPTIONS.find((option) => option.value === font)?.label ?? "KaTeX Math";
+}
+
+function getRecognitionDebugHint(debug?: FormulaRecognitionDebug) {
+  if (!debug) return null;
+
+  if (!debug.hasFormulaGeminiKey && !debug.hasGeminiKey) {
+    const provider = [debug.openAIBaseUrlHost, debug.openAIModel].filter(Boolean).join(" / ");
+    return provider
+      ? `Backend đang thấy provider chat: ${provider}. Nó chưa thấy FORMULA_GEMINI_API_KEY.`
+      : "Backend chưa thấy FORMULA_GEMINI_API_KEY.";
+  }
+
+  if (debug.provider === "gemini") {
+    return `Backend đang dùng Gemini cho nhận dạng: ${debug.formulaRecognitionModel ?? "model chưa rõ"}.`;
+  }
+
+  return null;
 }
 
 function initializeDrawingCanvas(canvas: HTMLCanvasElement | null) {

@@ -1,5 +1,4 @@
 import { createCorsPreflightResponse, getCorsHeaders } from "@/lib/cors";
-import { getGeminiModel } from "@/lib/gemini";
 import { getOpenAI } from "@/lib/openai";
 import { GoogleGenAI } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
@@ -7,6 +6,16 @@ import type { ChatCompletionContentPart } from "openai/resources/chat/completion
 
 interface RecognizeFormulaRequest {
   imageDataUrl?: string;
+}
+
+interface RecognitionDebug {
+  provider: "gemini" | "openai-compatible" | "missing";
+  hasFormulaGeminiKey: boolean;
+  hasGeminiKey: boolean;
+  hasOpenAIKey: boolean;
+  openAIBaseUrlHost: string | null;
+  openAIModel: string | null;
+  formulaRecognitionModel: string;
 }
 
 const SYSTEM_PROMPT = [
@@ -27,6 +36,7 @@ export function OPTIONS(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const corsHeaders = getCorsHeaders(req);
+  const debug = getRecognitionDebug();
 
   try {
     const { imageDataUrl } = await req.json() as RecognizeFormulaRequest;
@@ -38,9 +48,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!process.env.OPENAI_API_KEY && !getFormulaGeminiApiKey()) {
+    if (!getFormulaGeminiApiKey() && !process.env.OPENAI_API_KEY?.trim()) {
       return NextResponse.json(
-        { error: "API key not configured. Please set FORMULA_GEMINI_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY." },
+        {
+          latex: "",
+          error: "Backend nhận dạng chưa có API key. Hãy set FORMULA_GEMINI_API_KEY trên backend đang được NEXT_PUBLIC_API_BASE_URL trỏ tới, rồi redeploy backend.",
+          debug,
+        },
+        { headers: corsHeaders }
+      );
+    }
+
+    if (!getFormulaGeminiApiKey() && !isOpenAIProviderLikelyVisionCapable()) {
+      return NextResponse.json(
+        {
+          latex: "",
+          error: buildMissingVisionProviderMessage(),
+          debug,
+        },
         { headers: corsHeaders }
       );
     }
@@ -56,6 +81,7 @@ export async function POST(req: NextRequest) {
         {
           latex: "",
           error: getRecognitionErrorMessage(error),
+          debug,
         },
         { headers: corsHeaders }
       );
@@ -69,6 +95,7 @@ export async function POST(req: NextRequest) {
         warning: !latex && looksLikeModelDidNotReadImage(rawLatex)
           ? "Model hiện tại có thể chưa hỗ trợ đọc ảnh. Hãy dùng FORMULA_GEMINI_API_KEY hoặc model vision như gpt-4o/gemini."
           : undefined,
+        debug,
       },
       { headers: corsHeaders }
     );
@@ -221,5 +248,55 @@ function getFormulaGeminiApiKey() {
 }
 
 function getFormulaRecognitionModel() {
-  return process.env.FORMULA_RECOGNITION_MODEL || process.env.GEMINI_MODEL || getGeminiModel();
+  return process.env.FORMULA_RECOGNITION_MODEL?.trim() || process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+}
+
+function getRecognitionDebug(): RecognitionDebug {
+  return {
+    provider: getFormulaGeminiApiKey()
+      ? "gemini"
+      : process.env.OPENAI_API_KEY?.trim()
+        ? "openai-compatible"
+        : "missing",
+    hasFormulaGeminiKey: Boolean(process.env.FORMULA_GEMINI_API_KEY?.trim()),
+    hasGeminiKey: Boolean(process.env.GEMINI_API_KEY?.trim()),
+    hasOpenAIKey: Boolean(process.env.OPENAI_API_KEY?.trim()),
+    openAIBaseUrlHost: getOpenAIBaseUrlHost(),
+    openAIModel: process.env.OPENAI_MODEL?.trim() || null,
+    formulaRecognitionModel: getFormulaRecognitionModel(),
+  };
+}
+
+function getOpenAIBaseUrlHost() {
+  const value = process.env.OPENAI_BASE_URL?.trim();
+  if (!value) return "api.openai.com";
+
+  try {
+    return new URL(value).host;
+  } catch {
+    return value;
+  }
+}
+
+function isOpenAIProviderLikelyVisionCapable() {
+  const model = process.env.OPENAI_MODEL?.trim().toLowerCase() ?? "";
+  const baseUrl = process.env.OPENAI_BASE_URL?.trim().toLowerCase() ?? "";
+
+  if (/minimax|deepseek|text|m2\.7|m1|kimi|qwen|llama/.test(`${baseUrl} ${model}`)) {
+    return false;
+  }
+
+  return /gpt-4o|gpt-4\.1|gpt-5|o3|o4|vision|gemini|claude|pixtral|llava/.test(model);
+}
+
+function buildMissingVisionProviderMessage() {
+  const debug = getRecognitionDebug();
+  const model = debug.openAIModel ?? "OPENAI_MODEL chưa đặt";
+  const host = debug.openAIBaseUrlHost ?? "OPENAI_BASE_URL chưa đặt";
+
+  return [
+    "Backend nhận dạng chưa thấy FORMULA_GEMINI_API_KEY.",
+    `Hiện nó chỉ thấy provider chat ${host} / ${model}, model này không đọc ảnh nên Math Studio không thể nhận dạng nét vẽ.`,
+    "Nếu bạn đã thêm key rồi, hãy redeploy backend/Vercel và kiểm tra NEXT_PUBLIC_API_BASE_URL đang trỏ đúng backend mới nhất.",
+  ].join(" ");
 }
