@@ -106,6 +106,42 @@ export function createFallbackExportDrafts({ content, request }: CreateExportDra
   ];
 }
 
+export function createFullCopyExportDrafts({ content, request }: CreateExportDraftsInput): ExportDraft[] {
+  const source = content.trim();
+  const safeRequest = request?.trim();
+  const title = inferTitle(source, safeRequest);
+  const filenameBase = slugify(title || "tai-lieu-day-du");
+  const separatedContent = normalizeQuestionSeparators(source);
+  const wordCleanContent = normalizeSpacingForWord(separatedContent);
+
+  return [
+    {
+      id: "full-copy-word",
+      title: "Bản Word đầy đủ",
+      description: "Tạo trực tiếp từ text đã trích xuất, không gọi AI và không tóm tắt.",
+      filename: `${filenameBase}-word-day-du.docx`,
+      content: wordCleanContent,
+      source: "fallback",
+    },
+    {
+      id: "full-copy-questions",
+      title: "Bản tách từng câu",
+      description: "Giữ đủ nội dung, căn lại khoảng cách để mỗi câu dễ xem và dễ sao chép riêng.",
+      filename: `${filenameBase}-tach-cau.docx`,
+      content: separatedContent,
+      source: "fallback",
+    },
+    {
+      id: "full-copy-raw",
+      title: "Bản nguyên văn trích xuất",
+      description: "Giữ sát nội dung đọc được từ file, chỉ dùng cho trường hợp cần đối chiếu.",
+      filename: `${filenameBase}-nguyen-van.docx`,
+      content: source,
+      source: "fallback",
+    },
+  ];
+}
+
 export function createExportDrafts(input: CreateExportDraftsInput): ExportDraft[] {
   return [
     createOriginalExportDraft(input),
@@ -194,4 +230,20 @@ function normalizeFilename(filename: string | undefined, fallback: string): stri
   const raw = filename?.trim() || fallback;
   const withoutExtension = raw.replace(/\.docx$/i, "");
   return `${slugify(withoutExtension)}.docx`;
+}
+
+function normalizeQuestionSeparators(value: string) {
+  return value
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/([^\n])\s+((?:Câu|Cau|Bài|Bai)\s*\d+(?:\b|[\s.:：\-–—)]))/gi, "$1\n\n$2")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .trim();
+}
+
+function normalizeSpacingForWord(value: string) {
+  return normalizeQuestionSeparators(value)
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }

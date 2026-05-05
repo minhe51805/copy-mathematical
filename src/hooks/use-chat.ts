@@ -16,6 +16,7 @@ interface SendMessageOptions {
     assistantContent: string;
     previousAssistantContent: string | null;
     userMessage: string;
+    attachments: ChatAttachment[];
   }) => void;
 }
 
@@ -70,6 +71,7 @@ export function useChat(options?: SendMessageOptions) {
             assistantContent,
             previousAssistantContent,
             userMessage: userMessage.content,
+            attachments,
           });
           return;
         }
@@ -132,6 +134,7 @@ export function useChat(options?: SendMessageOptions) {
           assistantContent: visibleAssistantContent,
           previousAssistantContent,
           userMessage: userMessage.content,
+          attachments,
         });
       } catch (error) {
         console.error("Chat error:", error);

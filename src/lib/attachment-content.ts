@@ -117,7 +117,7 @@ function escapeAttribute(value: string) {
 }
 
 export function isFullCopyRequest(value: string) {
-  return /\b(đưa\s*ra\s*hết|dua\s*ra\s*het|toàn\s*bộ|toan\s*bo|full|chép|chep|copy|sao\s*chép|sao\s*chep|trích\s*hết|trich\s*het|trích\s*toàn\s*bộ|trich\s*toan\s*bo|lấy\s*hết|lay\s*het)\b/i
+  return /\b(đưa\s*ra\s*hết|dua\s*ra\s*het|toàn\s*bộ|toan\s*bo|full|chép|chep|copy|paste|dán|dan|sao\s*chép|sao\s*chep|trích\s*hết|trich\s*het|trích\s*toàn\s*bộ|trich\s*toan\s*bo|lấy\s*hết|lay\s*het)\b/i
     .test(value);
 }
 

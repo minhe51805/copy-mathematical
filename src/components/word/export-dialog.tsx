@@ -14,10 +14,12 @@ import {
 import { MathRenderer } from "@/components/chat/math-renderer";
 import {
   createFallbackExportDrafts,
+  createFullCopyExportDrafts,
   createOriginalExportDraft,
   type ExportDraft,
   type ExportDraftId,
 } from "@/lib/export-drafts";
+import { isFullCopyRequest } from "@/lib/attachment-content";
 import { getApiUrl, hasRuntimeApi } from "@/lib/api-url";
 import { generateDocx, downloadDocx, getWordExportFilename } from "@/lib/docx-generator";
 import { cn } from "@/lib/utils";
@@ -34,7 +36,7 @@ interface DraftLoadState {
   error?: string | null;
 }
 
-const EXPORT_DRAFT_CACHE_KEY = "math-chat-export-draft-cache-v1";
+const EXPORT_DRAFT_CACHE_KEY = "math-chat-export-draft-cache-v2";
 const MAX_CACHED_EXPORTS = 20;
 
 export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
@@ -59,9 +61,27 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
     [content, request]
   );
 
-  const draftLoadState = contentKey ? draftLoadStates[contentKey] ?? null : null;
+  const shouldUseLocalFullCopyDrafts = useMemo(
+    () => shouldUseLocalFullCopyExport(content, request),
+    [content, request]
+  );
+  const localFullCopyDrafts = useMemo(
+    () => content && shouldUseLocalFullCopyDrafts
+      ? createFullCopyExportDrafts({ content, request })
+      : [],
+    [content, request, shouldUseLocalFullCopyDrafts]
+  );
+
+  const draftLoadState = useMemo(
+    () => shouldUseLocalFullCopyDrafts
+      ? { key: contentKey, drafts: localFullCopyDrafts, error: null }
+      : contentKey
+        ? draftLoadStates[contentKey] ?? null
+        : null,
+    [contentKey, draftLoadStates, localFullCopyDrafts, shouldUseLocalFullCopyDrafts]
+  );
   const loadedDrafts = draftLoadState?.drafts ?? [];
-  const isLoadingDrafts = Boolean(content && !draftLoadState);
+  const isLoadingDrafts = Boolean(content && !draftLoadState && !shouldUseLocalFullCopyDrafts);
   const drafts = originalDraft ? [originalDraft, ...loadedDrafts] : [];
   const selectedDraftId = selectedDraftState.contentKey === contentKey
     ? selectedDraftState.draftId
@@ -70,6 +90,7 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
   const loadError = draftLoadState?.error ?? null;
 
   useEffect(() => {
+    if (shouldUseLocalFullCopyDrafts) return;
     if (!content || !contentKey || draftLoadState || loadingKeysRef.current.has(contentKey)) return;
 
     let cancelled = false;
@@ -131,7 +152,7 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
       cancelled = true;
       loadingKeys.delete(contentKey);
     };
-  }, [content, contentKey, draftLoadState, request]);
+  }, [content, contentKey, draftLoadState, request, shouldUseLocalFullCopyDrafts]);
 
   const handleExport = async () => {
     if (!selectedDraft) return;
@@ -164,7 +185,9 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
                   Xuất nội dung vừa trả lời
                 </DialogTitle>
                 <DialogDescription className="mt-2 max-w-3xl">
-                  Bản gốc là câu trả lời AI ngay phía trên. App sẽ tạo thêm 3 phiên bản bằng AI để bạn xem trước và chọn bản muốn xuất.
+                  {shouldUseLocalFullCopyDrafts
+                    ? "Yêu cầu này cần lấy toàn bộ tài liệu, nên app dùng trực tiếp nội dung đã trích xuất từ file và không để AI tóm tắt."
+                    : "Bản gốc là câu trả lời AI ngay phía trên. App sẽ tạo thêm 3 phiên bản bằng AI để bạn xem trước và chọn bản muốn xuất."}
                 </DialogDescription>
               </div>
               <div className="hidden rounded-full border bg-[hsl(var(--muted))] px-3 py-1 text-xs text-muted-foreground md:block">
@@ -442,6 +465,19 @@ function isExportDraft(value: unknown): value is ExportDraft {
       && "source" in value
       && typeof value.source === "string"
   );
+}
+
+function shouldUseLocalFullCopyExport(content: string | null, request?: string | null) {
+  if (request && isFullCopyRequest(request)) {
+    return true;
+  }
+
+  if (!content || content.length < 12_000) {
+    return false;
+  }
+
+  const questionCount = content.match(/(?:^|\n)\s*(?:#{1,6}\s*)?(?:Câu|Cau|Bài|Bai)\s*\d+/gi)?.length ?? 0;
+  return questionCount >= 8;
 }
 
 function hashString(value: string) {

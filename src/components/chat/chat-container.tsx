@@ -3,7 +3,9 @@
 import { useCallback, useState } from "react";
 import { useChat } from "@/hooks/use-chat";
 import { ExportDialog } from "@/components/word/export-dialog";
+import { buildLocalDocumentCopyResponse, isFullCopyRequest } from "@/lib/attachment-content";
 import { isExportOnlyRequest, isExportRequest } from "@/lib/export-drafts";
+import type { ChatAttachment } from "@/types";
 import { MessageList } from "./message-list";
 import { ChatInput } from "./chat-input";
 
@@ -16,19 +18,23 @@ interface ChatFinishResult {
   assistantContent: string;
   previousAssistantContent: string | null;
   userMessage: string;
+  attachments: ChatAttachment[];
 }
 
 export function ChatContainer() {
   const [exportSource, setExportSource] = useState<ExportSource | null>(null);
 
   const handleFinish = useCallback(
-    ({ assistantContent, previousAssistantContent, userMessage }: ChatFinishResult) => {
+    ({ assistantContent, previousAssistantContent, userMessage, attachments }: ChatFinishResult) => {
       if (!isExportRequest(userMessage)) return;
 
+      const fullDocumentCopy = isFullCopyRequest(userMessage)
+        ? buildLocalDocumentCopyResponse(userMessage, attachments)
+        : null;
       const shouldUsePreviousAnswer = isExportOnlyRequest(userMessage) && previousAssistantContent?.trim();
       const contentToExport = shouldUsePreviousAnswer
         ? previousAssistantContent
-        : assistantContent;
+        : fullDocumentCopy ?? assistantContent;
 
       if (contentToExport?.trim()) {
         setExportSource({
