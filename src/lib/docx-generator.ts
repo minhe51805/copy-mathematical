@@ -258,8 +258,13 @@ function removeHiddenMath(root: HTMLElement) {
 }
 
 function trimUiOnlyAttributes(root: HTMLElement) {
+  root.querySelectorAll("[data-copy-ui]").forEach((node) => {
+    node.remove();
+  });
+
   root.querySelectorAll("*").forEach((node) => {
     node.removeAttribute("data-state");
+    node.removeAttribute("data-copy-ui");
     node.removeAttribute("aria-hidden");
     node.removeAttribute("class");
   });

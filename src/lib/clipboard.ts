@@ -178,8 +178,13 @@ function unwrapHiddenMath(root: HTMLElement) {
 }
 
 function trimUiOnlyAttributes(root: HTMLElement) {
+  root.querySelectorAll("[data-copy-ui]").forEach((node) => {
+    node.remove();
+  });
+
   root.querySelectorAll("*").forEach((node) => {
     node.removeAttribute("data-state");
+    node.removeAttribute("data-copy-ui");
 
     if (!isKatexNode(node)) {
       node.removeAttribute("aria-hidden");
@@ -223,6 +228,9 @@ function getPlainText(element: HTMLElement): string {
   const clone = element.cloneNode(true) as HTMLElement;
 
   unwrapHiddenMath(clone);
+  clone.querySelectorAll("[data-copy-ui]").forEach((node) => {
+    node.remove();
+  });
 
   clone.querySelectorAll("br").forEach((br) => {
     br.replaceWith("\n");

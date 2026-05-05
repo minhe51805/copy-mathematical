@@ -1,9 +1,13 @@
 "use client";
 
+import { type ReactNode, useRef, useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import { Check, Copy } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { copyRenderedContent } from "@/lib/clipboard";
 import { normalizeMathMarkdown } from "@/lib/math-utils";
 import { cn } from "@/lib/utils";
 
@@ -80,9 +84,17 @@ function getMarkdownComponents(isUser: boolean): Components {
       </td>
     ),
     pre: ({ children }) => (
-      <pre className={cn("mb-3 overflow-x-auto rounded-xl p-3 text-sm last:mb-0", mutedBg)}>
-        {children}
-      </pre>
+      <CopyableMarkdownBlock
+        fallbackText={getNodeText(children)}
+        isUser={isUser}
+        label="Terminal"
+        className="mb-3 last:mb-0"
+        contentClassName={cn("overflow-x-auto rounded-xl p-3 text-sm", mutedBg)}
+      >
+        <pre>
+          {children}
+        </pre>
+      </CopyableMarkdownBlock>
     ),
     code: ({ children, className, ...props }) => {
       const isBlock = className?.includes("language-");
@@ -115,18 +127,234 @@ function getMarkdownComponents(isUser: boolean): Components {
   };
 }
 
+function MarkdownContent({ content, isUser }: { content: string; isUser: boolean }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[rehypeKatex]}
+      components={getMarkdownComponents(isUser)}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+}
+
 export function MathRenderer({ content, className, isUser = false }: MathRendererProps) {
   const normalizedContent = normalizeMathMarkdown(content);
+  const segments = splitCopyableQuestionSections(normalizedContent);
 
   return (
     <div className={className}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
-        components={getMarkdownComponents(isUser)}
-      >
-        {normalizedContent}
-      </ReactMarkdown>
+      {segments.map((segment, index) => (
+        segment.copyable ? (
+          <CopyableMarkdownBlock
+            key={`${segment.type}-${index}`}
+            fallbackText={segment.content}
+            isUser={isUser}
+            label={segment.label}
+            className="my-4 first:mt-0 last:mb-0"
+          >
+            <MarkdownContent content={segment.content} isUser={isUser} />
+          </CopyableMarkdownBlock>
+        ) : (
+          <MarkdownContent
+            key={`${segment.type}-${index}`}
+            content={segment.content}
+            isUser={isUser}
+          />
+        )
+      ))}
     </div>
   );
+}
+
+interface CopyableSegment {
+  type: "text" | "question";
+  content: string;
+  copyable: boolean;
+  label?: string;
+}
+
+function CopyableMarkdownBlock({
+  children,
+  fallbackText,
+  isUser,
+  label = "Copy block",
+  className,
+  contentClassName,
+}: {
+  children: ReactNode;
+  fallbackText: string;
+  isUser: boolean;
+  label?: string;
+  className?: string;
+  contentClassName?: string;
+}) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
+
+  const handleCopy = async () => {
+    if (isCopying) return;
+
+    setIsCopying(true);
+    try {
+      await copyRenderedContent(contentRef.current, fallbackText);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } finally {
+      setIsCopying(false);
+    }
+  };
+
+  return (
+    <div
+      className={cn(
+        "overflow-hidden rounded-xl border",
+        isUser ? "border-white/15 bg-black/10" : "border-border bg-card",
+        className
+      )}
+    >
+      <div
+        data-copy-ui="true"
+        className={cn(
+          "flex items-center justify-between gap-3 border-b px-3 py-2",
+          isUser ? "border-white/10 bg-white/10" : "border-border bg-muted/60"
+        )}
+      >
+        <span className={cn("truncate text-xs font-medium", isUser ? "text-white/65" : "text-muted-foreground")}>
+          {label}
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className={cn(
+            "h-7 px-2 text-xs",
+            isUser ? "text-white/75 hover:bg-white/10 hover:text-white" : "text-muted-foreground"
+          )}
+          onClick={handleCopy}
+          disabled={isCopying}
+          aria-label="Sao chép riêng phần này"
+        >
+          {copied ? (
+            <>
+              <Check className="h-3.5 w-3.5 text-green-500" />
+              Đã chép
+            </>
+          ) : (
+            <>
+              <Copy className="h-3.5 w-3.5" />
+              Sao chép
+            </>
+          )}
+        </Button>
+      </div>
+      <div
+        ref={contentRef}
+        className={cn(
+          "px-4 py-3",
+          isUser ? "text-white" : "text-foreground",
+          contentClassName
+        )}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function splitCopyableQuestionSections(content: string): CopyableSegment[] {
+  const lines = content.split("\n");
+  const segments: CopyableSegment[] = [];
+  let normalBuffer: string[] = [];
+  let questionBuffer: string[] | null = null;
+
+  const flushNormal = () => {
+    const normalContent = normalBuffer.join("\n").trim();
+    if (normalContent) {
+      segments.push({
+        type: "text",
+        content: normalContent,
+        copyable: false,
+      });
+    }
+    normalBuffer = [];
+  };
+
+  const flushQuestion = () => {
+    if (!questionBuffer) return;
+    const questionContent = trimSectionDelimiters(questionBuffer.join("\n"));
+    if (questionContent) {
+      segments.push({
+        type: "question",
+        content: questionContent,
+        copyable: true,
+        label: inferSectionLabel(questionContent),
+      });
+    }
+    questionBuffer = null;
+  };
+
+  for (const line of lines) {
+    if (isQuestionSectionStart(line)) {
+      flushQuestion();
+      flushNormal();
+      questionBuffer = [line];
+      continue;
+    }
+
+    if (questionBuffer) {
+      questionBuffer.push(line);
+    } else {
+      normalBuffer.push(line);
+    }
+  }
+
+  flushQuestion();
+  flushNormal();
+
+  return segments.length ? segments : [{
+    type: "text",
+    content,
+    copyable: false,
+  }];
+}
+
+function isQuestionSectionStart(line: string) {
+  return /^\s*(?:#{1,6}\s*)?(?:[*_]{0,2})?(?:câu|cau|bài|bai)\s*\d+[\s.:：-]/i.test(line.trim());
+}
+
+function inferSectionLabel(content: string) {
+  const firstLine = content
+    .split("\n")
+    .map((line) => line.replace(/^#{1,6}\s*/, "").replace(/[*_`]/g, "").trim())
+    .find(Boolean);
+
+  const match = firstLine?.match(/^(câu|cau|bài|bai)\s*\d+/i);
+  return match?.[0] ? `${match[0]} · Sao chép riêng` : "Khối nội dung · Sao chép riêng";
+}
+
+function trimSectionDelimiters(content: string) {
+  return content
+    .replace(/^\s*---+\s*\n/, "")
+    .replace(/\n\s*---+\s*$/, "")
+    .trim();
+}
+
+function getNodeText(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") {
+    return String(node);
+  }
+
+  if (Array.isArray(node)) {
+    return node.map(getNodeText).join("");
+  }
+
+  if (node && typeof node === "object" && "props" in node) {
+    const props = node.props as { children?: ReactNode };
+    return getNodeText(props.children);
+  }
+
+  return "";
 }
