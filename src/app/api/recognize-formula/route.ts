@@ -1,5 +1,5 @@
 import { createCorsPreflightResponse, getCorsHeaders } from "@/lib/cors";
-import { getGeminiModel, shouldUseGeminiNative } from "@/lib/gemini";
+import { getGeminiModel } from "@/lib/gemini";
 import { getOpenAI } from "@/lib/openai";
 import { GoogleGenAI } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
@@ -38,16 +38,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
+    if (!process.env.OPENAI_API_KEY && !getFormulaGeminiApiKey()) {
       return NextResponse.json(
-        { error: "API key not configured. Please set GEMINI_API_KEY or OPENAI_API_KEY." },
+        { error: "API key not configured. Please set FORMULA_GEMINI_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY." },
         { headers: corsHeaders }
       );
     }
 
     let rawLatex = "";
     try {
-      rawLatex = shouldUseGeminiNative()
+      rawLatex = shouldUseGeminiForFormulaRecognition()
         ? await recognizeWithGemini(imageDataUrl)
         : await recognizeWithOpenAI(imageDataUrl);
     } catch (error) {
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
       {
         latex,
         warning: !latex && looksLikeModelDidNotReadImage(rawLatex)
-          ? "Model hiện tại có thể chưa hỗ trợ đọc ảnh. Hãy dùng GEMINI_API_KEY hoặc model vision như gpt-4o/gemini."
+          ? "Model hiện tại có thể chưa hỗ trợ đọc ảnh. Hãy dùng FORMULA_GEMINI_API_KEY hoặc model vision như gpt-4o/gemini."
           : undefined,
       },
       { headers: corsHeaders }
@@ -83,15 +83,15 @@ export async function POST(req: NextRequest) {
 }
 
 async function recognizeWithGemini(imageDataUrl: string) {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  const apiKey = getFormulaGeminiApiKey();
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY environment variable is not set");
+    throw new Error("FORMULA_GEMINI_API_KEY or GEMINI_API_KEY environment variable is not set");
   }
 
   const parsed = parseImageDataUrl(imageDataUrl);
   const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
-    model: getGeminiModel(),
+    model: getFormulaRecognitionModel(),
     contents: [
       {
         role: "user",
@@ -202,7 +202,7 @@ function getRecognitionErrorMessage(error: unknown) {
   }
 
   if (/vision|image|multimodal|unsupported|model/i.test(message)) {
-    return "Model hiện tại không hỗ trợ đọc ảnh. Hãy dùng GEMINI_API_KEY hoặc model vision.";
+    return "Model hiện tại không hỗ trợ đọc ảnh. Hãy dùng FORMULA_GEMINI_API_KEY hoặc model vision.";
   }
 
   if (/404/.test(message)) {
@@ -210,4 +210,16 @@ function getRecognitionErrorMessage(error: unknown) {
   }
 
   return message || "Không nhận dạng được công thức.";
+}
+
+function shouldUseGeminiForFormulaRecognition() {
+  return Boolean(getFormulaGeminiApiKey());
+}
+
+function getFormulaGeminiApiKey() {
+  return process.env.FORMULA_GEMINI_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim();
+}
+
+function getFormulaRecognitionModel() {
+  return process.env.FORMULA_RECOGNITION_MODEL || process.env.GEMINI_MODEL || getGeminiModel();
 }
