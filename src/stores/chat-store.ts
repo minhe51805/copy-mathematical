@@ -109,6 +109,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (messages.length === 0) return;
 
     const title = messages[0]?.content?.slice(0, 50) || "New chat";
+    let nextConversationId = currentConversationId;
     const updatedConversations = conversations.map((conv) =>
       conv.id === currentConversationId
         ? { ...conv, messages, updatedAt: Date.now() }
@@ -116,8 +117,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     );
 
     if (!currentConversationId || !conversations.find((c) => c.id === currentConversationId)) {
+      nextConversationId = currentConversationId || generateId();
       const newConv: Conversation = {
-        id: currentConversationId || generateId(),
+        id: nextConversationId,
         title: title + (messages.length > 1 ? "..." : ""),
         messages,
         createdAt: Date.now(),
@@ -127,7 +129,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
 
     saveToStorage(updatedConversations);
-    set({ conversations: updatedConversations });
+    set({ conversations: updatedConversations, currentConversationId: nextConversationId });
   },
 
   loadConversation: (id: string) => {

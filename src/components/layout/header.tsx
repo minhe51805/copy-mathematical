@@ -1,15 +1,17 @@
 "use client";
 
-import { Menu, X } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
 
 interface HeaderProps {
   onMenuClick?: () => void;
   isSidebarOpen?: boolean;
+  userLabel?: string;
+  onLogout?: () => void;
 }
 
-export function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
+export function Header({ onMenuClick, isSidebarOpen, userLabel, onLogout }: HeaderProps) {
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:px-6">
       <div className="flex min-w-0 items-center gap-3">
@@ -36,7 +38,24 @@ export function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-2">
+        {userLabel && (
+          <span className="hidden rounded-lg border border-border/15 bg-card px-3 py-2 text-xs font-medium text-muted-foreground shadow-[var(--shadow-sm)] sm:inline-flex">
+            {userLabel}
+          </span>
+        )}
         <ThemeToggle />
+        {onLogout && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="hidden gap-2 sm:inline-flex"
+            onClick={onLogout}
+          >
+            <LogOut className="h-4 w-4" />
+            Đăng xuất
+          </Button>
+        )}
       </div>
     </header>
   );

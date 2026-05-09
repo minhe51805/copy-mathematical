@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Bot, MessageSquare, Plus, Trash2 } from "lucide-react";
 import { useChatStore } from "@/stores/chat-store";
 import { formatTimestamp } from "@/lib/math-utils";
@@ -13,6 +14,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onChatSelect }: SidebarProps) {
+  const router = useRouter();
   const {
     conversations,
     currentConversationId,
@@ -24,11 +26,13 @@ export function Sidebar({ onChatSelect }: SidebarProps) {
 
   const handleNewChat = () => {
     createNewConversation();
+    router.push("/newchat");
     onChatSelect?.();
   };
 
   const handleSelectChat = (id: string) => {
     loadConversation(id);
+    router.push(`/newchat?=#${encodeURIComponent(id)}`);
     onChatSelect?.();
   };
 
