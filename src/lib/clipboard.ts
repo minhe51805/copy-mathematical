@@ -123,11 +123,16 @@ const CLIPBOARD_CSS = `
   }
   .math-chat-copy .katex-display > .katex { display: block; padding: 3px 0; text-align: center; }
   .math-chat-copy .katex-html { white-space: nowrap; }
+  .math-chat-copy math {
+    font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", serif;
+    font-size: 1.08em;
+  }
 `;
 
 export async function copyRenderedContent(element: HTMLElement | null, fallbackMarkdown: string) {
   const normalizedMarkdown = normalizeMathMarkdown(fallbackMarkdown);
-  const plainText = element ? getPlainText(element) : stripMarkdown(normalizedMarkdown);
+  const singleMathml = element ? getSingleMathmlCopyText(element) : "";
+  const plainText = singleMathml || (element ? getPlainText(element) : stripMarkdown(normalizedMarkdown));
 
   if (!element || !("ClipboardItem" in window) || !navigator.clipboard?.write) {
     await navigator.clipboard.writeText(plainText);
@@ -165,6 +170,7 @@ export function writeRenderedSelectionToClipboard(
 
   const selectedMathElement = getSingleSelectedMathElement(root, selection);
   const container = document.createElement("div");
+  const selectedMathml = selectedMathElement ? getSerializedMathml(selectedMathElement) : "";
 
   if (selectedMathElement) {
     container.append(selectedMathElement.cloneNode(true));
@@ -185,13 +191,18 @@ export function writeRenderedSelectionToClipboard(
   event.preventDefault();
   event.clipboardData.setData("text/html", html);
   event.clipboardData.setData("text/plain", plainText || fallbackText);
+  if (selectedMathml) {
+    setOptionalClipboardData(event.clipboardData, "application/mathml+xml", selectedMathml);
+    setOptionalClipboardData(event.clipboardData, "text/mathml", selectedMathml);
+    setOptionalClipboardData(event.clipboardData, "MathML Presentation", wrapMathTypeClipboardMathml(selectedMathml));
+  }
   return true;
 }
 
 function createClipboardHtml(element: HTMLElement): string {
   const clone = element.cloneNode(true) as HTMLElement;
   trimUiOnlyAttributes(clone);
-  inlineKatexStyles(element, clone);
+  replaceKatexWithMathml(clone);
 
   return [
     "<!doctype html>",
@@ -206,6 +217,56 @@ function createClipboardHtml(element: HTMLElement): string {
     "</body>",
     "</html>",
   ].join("");
+}
+
+function replaceKatexWithMathml(root: HTMLElement) {
+  root.querySelectorAll<HTMLElement>(".katex-display").forEach((node) => {
+    const math = getMathmlElement(node, "block");
+    if (!math) return;
+
+    const wrapper = document.createElement("div");
+    wrapper.setAttribute("style", "margin: 12px 0; text-align: center;");
+    wrapper.append(math);
+    node.replaceWith(wrapper);
+  });
+
+  root.querySelectorAll<HTMLElement>(".katex").forEach((node) => {
+    const math = getMathmlElement(node, "inline");
+    if (!math) return;
+    node.replaceWith(math);
+  });
+}
+
+function getMathmlElement(node: Element, displayMode?: "inline" | "block") {
+  const math = node.matches("math")
+    ? node
+    : node.querySelector(".katex-mathml math");
+
+  if (!math) return null;
+
+  const clone = math.cloneNode(true) as Element;
+  clone.setAttribute("xmlns", "http://www.w3.org/1998/Math/MathML");
+
+  if (displayMode) {
+    clone.setAttribute("display", displayMode);
+  }
+
+  cleanupMathmlForClipboard(clone);
+  return clone;
+}
+
+function cleanupMathmlForClipboard(math: Element) {
+  math.removeAttribute("class");
+  math.removeAttribute("style");
+  math.removeAttribute("aria-hidden");
+  math.removeAttribute("data-copy-ui");
+
+  math.querySelectorAll("*").forEach((node) => {
+    node.removeAttribute("class");
+    node.removeAttribute("style");
+    node.removeAttribute("aria-hidden");
+    node.removeAttribute("data-copy-ui");
+  });
 }
 
 function unwrapHiddenMath(root: HTMLElement) {
@@ -329,12 +390,66 @@ function getKatexLatex(node: Element) {
 function getMathPlainText(node: Element) {
   const innerMath = node.querySelector(".katex");
   const latex = getKatexLatex(node) || (innerMath ? getKatexLatex(innerMath) : "");
+  const mathml = getSerializedMathml(node);
+
+  if (mathml) {
+    return mathml;
+  }
+
   if (latex) {
     return node.classList.contains("katex-display") ? `$$\n${latex}\n$$` : `$${latex}$`;
   }
 
   const clone = node.cloneNode(true) as HTMLElement;
   return getPlainText(clone);
+}
+
+function getSingleMathmlCopyText(root: HTMLElement) {
+  const displayMathNodes = Array.from(root.querySelectorAll<HTMLElement>(".katex-display"));
+  const inlineMathNodes = Array.from(root.querySelectorAll<HTMLElement>(".katex"))
+    .filter((node) => !node.closest(".katex-display"));
+  const mathNodes = [...displayMathNodes, ...inlineMathNodes];
+
+  if (mathNodes.length !== 1) return "";
+
+  const textClone = root.cloneNode(true) as HTMLElement;
+  textClone.querySelectorAll("[data-copy-ui], .katex-display, .katex").forEach((node) => {
+    node.remove();
+  });
+
+  if (cleanupPlainText(textClone.textContent ?? "")) return "";
+
+  return getSerializedMathml(mathNodes[0]);
+}
+
+function getSerializedMathml(node: Element) {
+  const displayMode = node.closest(".katex-display") || node.classList.contains("katex-display")
+    ? "block"
+    : "inline";
+  const math = getMathmlElement(node, displayMode);
+
+  if (!math) return "";
+
+  return new XMLSerializer().serializeToString(math);
+}
+
+function wrapMathTypeClipboardMathml(mathml: string) {
+  return [
+    "<?xml version='1.0'?>",
+    "<!-- MathType@Translator@5@5@MathML2 (Clipboard).tdl@MathML 2.0 (Clipboard)@ -->",
+    "<html>",
+    mathml,
+    "</html>",
+    "<!-- MathType@End@5@5@ -->",
+  ].join("");
+}
+
+function setOptionalClipboardData(clipboardData: DataTransfer, type: string, value: string) {
+  try {
+    clipboardData.setData(type, value);
+  } catch {
+    // Browsers may ignore native or custom clipboard formats from web pages.
+  }
 }
 
 function getPlainText(element: HTMLElement): string {
