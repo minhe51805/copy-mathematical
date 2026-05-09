@@ -7,16 +7,13 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
-  ExternalLink,
   FileText,
   FolderOpen,
   ImageIcon,
-  KeyRound,
   MousePointer2,
   Plus,
   Presentation,
   Sigma,
-  SkipForward,
   Table2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,6 +32,7 @@ export function LoginPageClient() {
   const [password, setPassword] = useState(MOCK_AUTH_USER.password);
   const [error, setError] = useState("");
   const [hasSession, setHasSession] = useState(false);
+  const hasUsername = username.trim().length > 0;
 
   useEffect(() => {
     initializeTheme();
@@ -47,6 +45,11 @@ export function LoginPageClient() {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
+
+    if (!hasUsername) {
+      setError("Bạn cần nhập tài khoản trước.");
+      return;
+    }
 
     if (!loginMockUser(username, password)) {
       setError("Tài khoản hoặc mật khẩu chưa đúng.");
@@ -79,15 +82,17 @@ export function LoginPageClient() {
         </div>
       </header>
 
-      <section className="mx-auto grid min-h-[calc(100dvh-80px)] w-full max-w-[1480px] gap-10 px-6 pb-8 md:px-10 lg:grid-cols-[minmax(420px,0.85fr)_minmax(520px,1.15fr)] lg:items-center">
-        <div className="mx-auto w-full max-w-[430px] lg:mx-0 lg:pl-16 xl:pl-24">
-          <div className="mb-8 text-center lg:text-left">
-            <h1 className="font-serif text-5xl font-normal leading-[1.05] md:text-6xl">
+      <section className="mx-auto grid min-h-[calc(100dvh-80px)] w-full max-w-[1480px] gap-10 px-6 pb-8 md:px-10 lg:grid-cols-[minmax(520px,1.15fr)_minmax(420px,0.85fr)] lg:items-center">
+        <ShowcaseCard />
+
+        <div className="mx-auto w-full max-w-[480px] lg:mx-0 lg:justify-self-center">
+          <div className="mb-10 text-center">
+            <h1 className="font-serif text-[48px] font-normal leading-[1.08] text-[#FAF9F5] md:text-[60px] md:leading-[1.05]">
               Nghĩ nhanh,
               <br />
-              giải nhanh hơn
+              giải gọn hơn
             </h1>
-            <p className="mt-6 text-lg font-semibold leading-7 text-[#FAF9F5]">Trợ lý toán học cho người giải quyết vấn đề</p>
+            <p className="mt-6 font-serif text-[18px] font-normal leading-7 text-[#FAF9F5]/88">Hỏi trong chat, làm toán cùng AI Math</p>
           </div>
 
           <form onSubmit={handleSubmit} className="rounded-[28px] border border-white/12 bg-[#1B1A19] p-7 shadow-[rgba(0,0,0,0.22)_0px_24px_80px]">
@@ -96,8 +101,8 @@ export function LoginPageClient() {
               onClick={fillMockAccount}
               className="flex min-h-11 w-full items-center justify-center gap-2 rounded-[9.6px] border border-white/20 bg-transparent px-4 py-3 text-[15px] font-semibold leading-[22.5px] text-[#FAF9F5] transition-colors hover:bg-white/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D97757]/40"
             >
-              <KeyRound className="h-4 w-4 text-[#D97757]" />
-              Điền tài khoản mock
+              <GoogleLogo className="h-4 w-4" />
+              Continue with Google
             </button>
 
             <div className="my-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-xs font-semibold uppercase tracking-[0.08em] text-[#FAF9F5]/75">
@@ -114,26 +119,34 @@ export function LoginPageClient() {
                 <Input
                   id="username"
                   value={username}
-                  onChange={(event) => setUsername(event.target.value)}
+                  onChange={(event) => {
+                    setUsername(event.target.value);
+                    setError("");
+                  }}
                   placeholder={MOCK_AUTH_USER.username}
                   autoComplete="username"
                   className="border-white/15 bg-[#2B2A28] text-[#FAF9F5] shadow-none placeholder:text-[#FAF9F5]/45 hover:border-white/25 focus-visible:border-[#D97757] focus-visible:ring-[#D97757]/25"
                 />
               </div>
-              <div className="grid gap-2">
-                <Label className="text-[#FAF9F5]/85" htmlFor="password">
-                  Mật khẩu
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder={MOCK_AUTH_USER.password}
-                  autoComplete="current-password"
-                  className="border-white/15 bg-[#2B2A28] text-[#FAF9F5] shadow-none placeholder:text-[#FAF9F5]/45 hover:border-white/25 focus-visible:border-[#D97757] focus-visible:ring-[#D97757]/25"
-                />
-              </div>
+              {hasUsername && (
+                <div className="grid gap-2">
+                  <Label className="text-[#FAF9F5]/85" htmlFor="password">
+                    Mật khẩu
+                  </Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(event) => {
+                      setPassword(event.target.value);
+                      setError("");
+                    }}
+                    placeholder={MOCK_AUTH_USER.password}
+                    autoComplete="current-password"
+                    className="border-white/15 bg-[#2B2A28] text-[#FAF9F5] shadow-none placeholder:text-[#FAF9F5]/45 hover:border-white/25 focus-visible:border-[#D97757] focus-visible:ring-[#D97757]/25"
+                  />
+                </div>
+              )}
 
               {error && (
                 <p className="rounded-lg border border-[#E01E5A]/30 bg-[#E01E5A]/10 px-3 py-2 text-sm text-[#FFB3C4]">
@@ -146,6 +159,14 @@ export function LoginPageClient() {
                 <ArrowRight className="h-4 w-4" />
               </Button>
 
+              <p className="text-center text-xs leading-5 text-[#FAF9F5]/60">
+                Bằng cách tiếp tục, bạn đồng ý với{" "}
+                <Link className="underline underline-offset-4 hover:text-[#FAF9F5]" href="/product" target="_blank">
+                  Chính sách quyền riêng tư của AI Math
+                </Link>
+                .
+              </p>
+
               {hasSession && (
                 <button
                   type="button"
@@ -156,14 +177,9 @@ export function LoginPageClient() {
                 </button>
               )}
             </div>
-
-            <p className="mt-5 text-xs leading-5 text-[#FAF9F5]/60">
-              Tài khoản demo: {MOCK_AUTH_USER.username} / {MOCK_AUTH_USER.password}. Phiên đăng nhập mock được lưu trong trình duyệt local.
-            </p>
           </form>
         </div>
 
-        <ShowcaseCard />
       </section>
     </main>
   );
@@ -181,14 +197,6 @@ function ShowcaseCard() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const goToDocumentPreview = () => {
-    setSceneIndex(SHOWCASE_SCENES.indexOf("document"));
-  };
-
-  const goToNextScene = () => {
-    setSceneIndex((current) => (current + 1) % SHOWCASE_SCENES.length);
-  };
-
   return (
     <aside className="relative mx-auto hidden h-[min(76dvh,760px)] min-h-[560px] w-full max-w-[720px] overflow-hidden rounded-[18px] border border-[#E6E1D8] bg-[#FAF9F5] text-[#141413] shadow-[rgba(0,0,0,0.24)_0px_28px_90px] lg:block">
       <ShowcaseAnimationStyles />
@@ -200,28 +208,8 @@ function ShowcaseCard() {
           backgroundSize: "28px 28px",
         }}
       />
-      <div className="relative flex justify-center pt-3">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={goToDocumentPreview}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#3D3D3A] text-[#FAF9F5] shadow-[rgba(0,0,0,0.12)_0px_6px_16px]"
-            aria-label="Mở preview tài liệu"
-          >
-            <ExternalLink className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={goToNextScene}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#3D3D3A] text-[#FAF9F5] shadow-[rgba(0,0,0,0.12)_0px_6px_16px]"
-            aria-label="Xem cảnh tiếp theo"
-          >
-            <SkipForward className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
 
-      <div className="relative h-[calc(100%-48px)]" aria-live="polite">
+      <div className="relative h-full" aria-live="polite">
         <div
           key={scene}
           className="absolute inset-0"
@@ -248,6 +236,29 @@ function ShowcaseCard() {
         ))}
       </div>
     </aside>
+  );
+}
+
+function GoogleLogo({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06L5.84 9.9C6.71 7.31 9.14 5.38 12 5.38z"
+      />
+    </svg>
   );
 }
 
