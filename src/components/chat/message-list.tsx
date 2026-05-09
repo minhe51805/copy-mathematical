@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Calculator, ChevronDown, FileText, Sparkles } from "lucide-react";
+import { Calculator, ChevronDown, FileText, Sparkles, type LucideIcon } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { hasTestPaperContent } from "@/lib/test-paper";
 import type { Message as MessageType } from "@/types";
 import { cn } from "@/lib/utils";
 import { Message } from "./message";
@@ -13,15 +14,33 @@ interface MessageListProps {
   messages: MessageType[];
   isLoading: boolean;
   onExport?: (content: string, request?: string | null) => void;
+  emptyTitle?: string;
+  emptySubtitle?: string;
+  suggestions?: MessageSuggestion[];
+  enableTestPdfExport?: boolean;
 }
 
-const SUGGESTIONS = [
+export interface MessageSuggestion {
+  icon: LucideIcon;
+  text: string;
+  label: string;
+}
+
+const SUGGESTIONS: MessageSuggestion[] = [
   { icon: Calculator, text: "Giải phương trình bậc 2: x² + 3x + 2 = 0", label: "Phương trình" },
   { icon: Sparkles, text: "Tính tích phân ∫₀¹ x² dx", label: "Tích phân" },
   { icon: FileText, text: "Chứng minh định lý Pythagorean", label: "Chứng minh" },
 ];
 
-export function MessageList({ messages, isLoading, onExport }: MessageListProps) {
+export function MessageList({
+  messages,
+  isLoading,
+  onExport,
+  emptyTitle = "Tôi có thể giúp gì cho bạn?",
+  emptySubtitle,
+  suggestions = SUGGESTIONS,
+  enableTestPdfExport = false,
+}: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -54,25 +73,32 @@ export function MessageList({ messages, isLoading, onExport }: MessageListProps)
                 ∑
               </div>
               <h2 className="w-full max-w-[46rem] text-balance text-[clamp(2rem,5vw,3rem)] font-normal leading-[1.12] text-foreground">
-                Tôi có thể giúp gì cho bạn?
+                {emptyTitle}
               </h2>
+              {emptySubtitle && (
+                <p className="mt-4 max-w-[34rem] text-balance text-sm leading-6 text-muted-foreground md:text-[15px]">
+                  {emptySubtitle}
+                </p>
+              )}
               <div className="mt-8 grid w-full max-w-3xl grid-cols-1 gap-3 md:grid-cols-3">
-                {SUGGESTIONS.map((suggestion, index) => (
+                {suggestions.map((suggestion, index) => (
                   <button
                     key={index}
-                    className="claude-card claude-card-hover group flex min-h-[112px] min-w-0 flex-col items-start gap-3 p-4 text-left sm:p-5"
+                    className="claude-card claude-card-hover group flex min-h-[124px] min-w-0 flex-col items-start gap-3 p-4 text-left sm:p-5"
                     onClick={() => {
                       const event = new CustomEvent("suggestion-click", { detail: suggestion.text });
                       window.dispatchEvent(event);
                     }}
                   >
-                    <div className="flex items-center gap-2">
-                      <suggestion.icon className="h-4 w-4 text-[hsl(var(--terracotta))]" />
-                      <span className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary text-[hsl(var(--terracotta))] transition-colors group-hover:bg-card">
+                        <suggestion.icon className="h-4 w-4" />
+                      </span>
+                      <span className="text-sm font-semibold text-foreground">
                         {suggestion.label}
                       </span>
                     </div>
-                    <p className="max-w-full text-[15px] leading-[22.5px] text-foreground/85 transition-colors group-hover:text-foreground">
+                    <p className="max-w-full text-sm leading-6 text-muted-foreground transition-colors group-hover:text-foreground/85">
                       {suggestion.text}
                     </p>
                   </button>
@@ -96,7 +122,11 @@ export function MessageList({ messages, isLoading, onExport }: MessageListProps)
                   </AvatarFallback>
                 </Avatar>
               )}
-              <Message message={message} onExport={onExport} />
+              <Message
+                message={message}
+                onExport={onExport}
+                testPaperContent={enableTestPdfExport ? getTestPaperContentForMessage(messages, message.id) : undefined}
+              />
             </div>
           ))}
 
@@ -130,4 +160,47 @@ export function MessageList({ messages, isLoading, onExport }: MessageListProps)
       )}
     </div>
   );
+}
+
+function getTestPaperContentForMessage(messages: MessageType[], messageId: string) {
+  const currentIndex = messages.findIndex((message) => message.id === messageId);
+  const currentMessage = messages[currentIndex];
+
+  if (!currentMessage || currentMessage.role !== "assistant") {
+    return undefined;
+  }
+
+  const startIndex = findCurrentTestSequenceStart(messages, currentIndex);
+  const assistantTestChunks = messages
+    .slice(startIndex, currentIndex + 1)
+    .filter((message) => message.role === "assistant" && hasTestPaperContent(message.content))
+    .map((message) => message.content.trim())
+    .filter(Boolean);
+
+  if (!assistantTestChunks.length || !hasTestPaperContent(currentMessage.content)) {
+    return undefined;
+  }
+
+  return assistantTestChunks.join("\n\n---\n\n");
+}
+
+function findCurrentTestSequenceStart(messages: MessageType[], currentIndex: number) {
+  for (let index = currentIndex - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role === "user" && !isContinuationMessage(message.content)) {
+      return index;
+    }
+  }
+
+  return 0;
+}
+
+function isContinuationMessage(content: string) {
+  const normalized = content
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+  return /^(tiep|tiep di|tiep tuc|lam tiep|viet tiep|cho tiep|continue|next|more)(?:\b|[.!?]*)/.test(normalized);
 }

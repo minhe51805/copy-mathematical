@@ -11,6 +11,8 @@ const WORD_EXPORT_STYLE_PROPERTIES = [
   "font-size",
   "font-style",
   "font-weight",
+  "gap",
+  "grid-template-columns",
   "height",
   "left",
   "line-height",
@@ -43,7 +45,7 @@ const WORD_HTML_CSS = `
     margin: 0;
     background: #ffffff;
     color: #111111;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: "Times New Roman", Times, "Cambria Math", serif;
     font-size: 11pt;
     line-height: 1.55;
   }
@@ -118,11 +120,11 @@ const WORD_HTML_CSS = `
     border: 1px solid #e3e3e3;
     border-radius: 6px;
     white-space: pre-wrap;
-    font-family: Consolas, "Courier New", monospace;
+    font-family: "Times New Roman", Times, serif;
     font-size: 10pt;
   }
   .math-chat-word code {
-    font-family: Consolas, "Courier New", monospace;
+    font-family: "Times New Roman", Times, serif;
     background: #f6f6f6;
     border-radius: 3px;
     padding: 1px 3px;
@@ -132,8 +134,36 @@ const WORD_HTML_CSS = `
     border: 0;
     border-top: 1px solid #d9d9d9;
   }
+  .math-chat-word .katex,
+  .math-chat-word .katex * {
+    box-sizing: content-box;
+  }
   .math-chat-word .katex {
     font-size: 1.08em;
+    line-height: normal;
+    font-family: KaTeX_Main, "Times New Roman", serif;
+    text-rendering: geometricPrecision;
+  }
+  .math-chat-word .katex .mathnormal {
+    font-family: KaTeX_Math;
+  }
+  .math-chat-word .katex .mathit,
+  .math-chat-word .katex .mathbf,
+  .math-chat-word .katex .mainrm {
+    font-family: KaTeX_Main;
+  }
+  .math-chat-word .katex .sqrt > .sqrt-sign,
+  .math-chat-word .katex .delimsizing.size1 {
+    font-family: KaTeX_Size1;
+  }
+  .math-chat-word .katex .delimsizing.size2 {
+    font-family: KaTeX_Size2;
+  }
+  .math-chat-word .katex .delimsizing.size3 {
+    font-family: KaTeX_Size3;
+  }
+  .math-chat-word .katex .delimsizing.size4 {
+    font-family: KaTeX_Size4;
   }
   .math-chat-word .katex-display {
     display: block;
@@ -151,6 +181,7 @@ const WORD_HTML_CSS = `
   }
   .math-chat-word .katex-html {
     white-space: nowrap;
+    overflow: visible;
   }
 `;
 
@@ -243,7 +274,7 @@ function isKatexNode(node: Element) {
 }
 
 function isCoreContentNode(node: Element) {
-  return /^(P|H1|H2|H3|H4|H5|H6|UL|OL|LI|TABLE|THEAD|TBODY|TR|TH|TD|BLOCKQUOTE|PRE|CODE|HR)$/i
+  return /^(DIV|SPAN|P|H1|H2|H3|H4|H5|H6|UL|OL|LI|TABLE|THEAD|TBODY|TR|TH|TD|BLOCKQUOTE|PRE|CODE|HR)$/i
     .test(node.tagName);
 }
 

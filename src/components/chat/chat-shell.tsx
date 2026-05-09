@@ -8,11 +8,19 @@ import { ChatContainer } from "@/components/chat/chat-container";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { initializeStore, useChatStore } from "@/stores/chat-store";
 import { initializeTheme } from "@/hooks/use-theme";
+import { ASSISTANT_MODES, type AssistantModeId } from "@/lib/assistant-modes";
 import { isMockAuthenticated, logoutMockUser, MOCK_AUTH_USER } from "@/lib/mock-auth";
+import type { WorkspaceId } from "@/types";
 
-export function ChatShell() {
+interface ChatShellProps {
+  mode?: AssistantModeId;
+}
+
+export function ChatShell({ mode }: ChatShellProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const modeConfig = mode ? ASSISTANT_MODES[mode] : undefined;
+  const workspaceId: WorkspaceId = mode ?? "general";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -23,14 +31,14 @@ export function ChatShell() {
 
   useEffect(() => {
     initializeTheme();
-    initializeStore();
+    initializeStore(workspaceId);
     const timer = window.setTimeout(() => {
       setIsAuthenticated(isMockAuthenticated());
       setHashValue(getWindowHash());
       setIsInitialized(true);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [workspaceId]);
 
   useEffect(() => {
     const handleHashChange = () => setHashValue(getWindowHash());
@@ -69,12 +77,12 @@ export function ChatShell() {
   useEffect(() => {
     if (!isInitialized || !isAuthenticated || !currentConversationId) return;
 
-    const targetUrl = `/newchat?=#${encodeURIComponent(currentConversationId)}`;
+    const targetUrl = `${getWorkspacePath(workspaceId)}?=#${encodeURIComponent(currentConversationId)}`;
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (currentUrl !== targetUrl) {
       router.replace(targetUrl, { scroll: false });
     }
-  }, [currentConversationId, isAuthenticated, isInitialized, router]);
+  }, [currentConversationId, isAuthenticated, isInitialized, router, workspaceId]);
 
   const handleLogout = () => {
     logoutMockUser();
@@ -94,12 +102,12 @@ export function ChatShell() {
   return (
     <div className="flex h-dvh overflow-hidden bg-background text-foreground">
       <aside className="hidden w-[272px] shrink-0 border-r border-white/10 bg-[hsl(var(--sidebar-bg))] text-[#FAF9F5] md:block">
-        <Sidebar />
+        <Sidebar workspaceId={workspaceId} />
       </aside>
 
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <SheetContent side="left" className="w-[288px] border-r-0 bg-[hsl(var(--sidebar-bg))] p-0 text-[#FAF9F5]">
-          <Sidebar onChatSelect={() => setSidebarOpen(false)} />
+          <Sidebar workspaceId={workspaceId} onChatSelect={() => setSidebarOpen(false)} />
         </SheetContent>
       </Sheet>
 
@@ -109,11 +117,20 @@ export function ChatShell() {
           isSidebarOpen={sidebarOpen}
           userLabel={MOCK_AUTH_USER.displayName}
           onLogout={handleLogout}
+          title={modeConfig?.workspace.name}
+          subtitle={modeConfig?.workspace.subtitle}
+          badge={modeConfig?.badge ?? process.env.NEXT_PUBLIC_MODEL_NAME ?? "AI"}
         />
-        <ChatContainer />
+        <ChatContainer modeConfig={modeConfig} />
       </main>
     </div>
   );
+}
+
+function getWorkspacePath(workspaceId: WorkspaceId) {
+  if (workspaceId === "teacher") return "/teacher";
+  if (workspaceId === "study") return "/study";
+  return "/newchat";
 }
 
 function getWindowHash() {

@@ -245,6 +245,7 @@ function CopyableMarkdownBlock({
       </div>
       <div
         ref={contentRef}
+        data-font="mathtype"
         className={cn(
           "px-4 py-3",
           "text-foreground",

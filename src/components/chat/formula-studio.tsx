@@ -73,13 +73,12 @@ export type FormulaInsertPayload = MathFormulaInsertPayload | DrawingFormulaInse
 
 interface FormulaRecognitionDebug {
   provider?: string;
-  hasFormulaGeminiKey?: boolean;
-  hasGeminiKey?: boolean;
-  hasOpenAIKey?: boolean;
-  openAIBaseUrlHost?: string | null;
-  openAIModel?: string | null;
+  hasGatewayUrl?: boolean;
+  hasGatewayKey?: boolean;
+  baseUrlHost?: string | null;
+  generatePath?: string | null;
+  model?: string | null;
   formulaRecognitionModel?: string;
-  attemptedFormulaModels?: string[];
   providerError?: string;
 }
 
@@ -1195,18 +1194,18 @@ function getFontLabel(font: FormulaFont) {
 function getRecognitionDebugHint(debug?: FormulaRecognitionDebug) {
   if (!debug) return null;
 
-  if (!debug.hasFormulaGeminiKey && !debug.hasGeminiKey) {
-    const provider = [debug.openAIBaseUrlHost, debug.openAIModel].filter(Boolean).join(" / ");
+  if (!debug.hasGatewayUrl || !debug.hasGatewayKey) {
+    const provider = [debug.baseUrlHost, debug.model].filter(Boolean).join(" / ");
     return provider
-      ? `Backend đang thấy provider chat: ${provider}. Nó chưa thấy FORMULA_GEMINI_API_KEY.`
-      : "Backend chưa thấy FORMULA_GEMINI_API_KEY.";
+      ? `Backend dang thay provider: ${provider}. No chua thay du AI_GATEWAY_PRIMARY_URL va AI_GATEWAY_PRIMARY_KEY.`
+      : "Backend chua thay AI_GATEWAY_PRIMARY_URL va AI_GATEWAY_PRIMARY_KEY.";
   }
 
-  if (debug.provider === "gemini") {
-    const attempted = debug.attemptedFormulaModels?.length
-      ? ` Đã thử: ${debug.attemptedFormulaModels.join(", ")}.`
-      : "";
-    return `Backend đang dùng Gemini cho nhận dạng: ${debug.formulaRecognitionModel ?? "model chưa rõ"}.${attempted}`;
+  if (debug.provider === "ai-gateway") {
+    const endpoint = [debug.baseUrlHost, debug.generatePath].filter(Boolean).join("");
+    return `Backend dang dung ${endpoint || "AI Gateway"} cho nhan dang: ${
+      debug.formulaRecognitionModel ?? "model chua ro"
+    }.`;
   }
 
   return null;

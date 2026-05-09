@@ -47,6 +47,7 @@ const STRIP_MARKDOWN_PATTERNS: Array<[RegExp, string]> = [
 ];
 
 const KATEX_CSS_URL = "https://cdn.jsdelivr.net/npm/katex@0.16.45/dist/katex.min.css";
+const MATHTYPE_FONT_STACK = '"Times New Roman", "Cambria Math", Symbol, "MT Extra", serif';
 
 const KATEX_COPY_STYLE_PROPERTIES = [
   "background",
@@ -93,12 +94,12 @@ const KATEX_COPY_STYLE_PROPERTIES = [
 const CLIPBOARD_CSS = `
   @import url("${KATEX_CSS_URL}");
   .math-chat-copy {
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: "Times New Roman", "Cambria Math", Arial, serif;
     font-size: 15px;
     line-height: 1.65;
     color: #111;
   }
-  .math-chat-copy p { margin: 0 0 12px; }
+  .math-chat-copy p { margin: 0 0 12px; white-space: pre-wrap; }
   .math-chat-copy h1 { font-size: 24px; margin: 18px 0 12px; font-weight: 700; }
   .math-chat-copy h2 { font-size: 20px; margin: 16px 0 10px; font-weight: 700; }
   .math-chat-copy h3 { font-size: 17px; margin: 14px 0 8px; font-weight: 700; }
@@ -109,7 +110,13 @@ const CLIPBOARD_CSS = `
   .math-chat-copy th { background: #f3f3f3; font-weight: 700; }
   .math-chat-copy pre { background: #f5f5f5; border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; white-space: pre-wrap; }
   .math-chat-copy code { font-family: Consolas, Monaco, monospace; background: #f5f5f5; padding: 1px 4px; border-radius: 4px; }
-  .math-chat-copy .katex { font-size: 1.08em; }
+  .math-chat-copy .katex {
+    font-size: 1.08em;
+    text-rendering: geometricPrecision;
+  }
+  .math-chat-copy .katex * {
+    box-sizing: content-box;
+  }
   .math-chat-copy .katex-display {
     display: block;
     margin: 14px 0;
@@ -124,8 +131,17 @@ const CLIPBOARD_CSS = `
   .math-chat-copy .katex-display > .katex { display: block; padding: 3px 0; text-align: center; }
   .math-chat-copy .katex-html { white-space: nowrap; }
   .math-chat-copy math {
-    font-family: "Times New Roman", Times, Symbol, "MT Extra", serif;
+    font-family: ${MATHTYPE_FONT_STACK};
     font-size: 1.08em;
+  }
+  .math-chat-copy .math-word-inline {
+    display: inline;
+    vertical-align: middle;
+  }
+  .math-chat-copy .math-word-display {
+    display: block;
+    margin: 12px 0;
+    text-align: center;
   }
   .math-chat-copy [data-font="mathtype"] math {
     font-family: "Times New Roman", Times, Symbol, "MT Extra", serif;
@@ -210,8 +226,11 @@ export function writeRenderedSelectionToClipboard(
 
 function createClipboardHtml(element: HTMLElement): string {
   const clone = element.cloneNode(true) as HTMLElement;
+  inlineKatexStyles(element, clone);
   trimUiOnlyAttributes(clone);
-  replaceKatexWithMathml(clone);
+  preserveSoftLineBreaks(clone);
+  replaceKatexWithMathmlForWord(clone);
+  prepareKatexForVisualClipboard(clone);
 
   return [
     "<!doctype html>",
@@ -228,21 +247,101 @@ function createClipboardHtml(element: HTMLElement): string {
   ].join("");
 }
 
-function replaceKatexWithMathml(root: HTMLElement) {
+function prepareKatexForVisualClipboard(root: HTMLElement) {
+  root.querySelectorAll(".katex-mathml").forEach((node) => {
+    node.remove();
+  });
+
+  root.querySelectorAll<HTMLElement>(".katex, .katex *").forEach((node) => {
+    node.style.setProperty("box-sizing", "content-box");
+    node.style.setProperty("text-rendering", "geometricPrecision");
+    node.removeAttribute("aria-hidden");
+  });
+
   root.querySelectorAll<HTMLElement>(".katex-display").forEach((node) => {
+    node.style.setProperty("display", "block");
+    node.style.setProperty("margin", "12px 0");
+    node.style.setProperty("text-align", "center");
+  });
+
+  root.querySelectorAll<HTMLElement>(".katex").forEach((node) => {
+    node.setAttribute("data-font", "mathtype");
+  });
+
+  root.querySelectorAll<HTMLElement>("math").forEach((node) => {
+    node.style.setProperty("font-family", MATHTYPE_FONT_STACK);
+  });
+}
+
+function replaceKatexWithMathmlForWord(root: HTMLElement) {
+  const displayNodes = Array.from(root.querySelectorAll<HTMLElement>(".katex-display"));
+
+  displayNodes.forEach((node) => {
+    if (!root.contains(node)) return;
+
     const math = getMathmlElement(node, "block");
     if (!math) return;
 
     const wrapper = document.createElement("div");
-    wrapper.setAttribute("style", "margin: 12px 0; text-align: center;");
+    wrapper.className = "math-word-display";
+    wrapper.style.setProperty("display", "block");
+    wrapper.style.setProperty("margin", "12px 0");
+    wrapper.style.setProperty("text-align", "center");
     wrapper.append(math);
     node.replaceWith(wrapper);
   });
 
-  root.querySelectorAll<HTMLElement>(".katex").forEach((node) => {
+  const inlineNodes = Array.from(root.querySelectorAll<HTMLElement>(".katex"))
+    .filter((node) => root.contains(node) && !node.closest(".katex-display"));
+
+  inlineNodes.forEach((node) => {
     const math = getMathmlElement(node, "inline");
     if (!math) return;
-    node.replaceWith(math);
+
+    const wrapper = document.createElement("span");
+    wrapper.className = "math-word-inline";
+    wrapper.style.setProperty("display", "inline");
+    wrapper.style.setProperty("vertical-align", "middle");
+    wrapper.append(math);
+    node.replaceWith(wrapper);
+  });
+}
+
+function preserveSoftLineBreaks(root: HTMLElement) {
+  const textNodes: Text[] = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!node.textContent?.includes("\n")) {
+        return NodeFilter.FILTER_REJECT;
+      }
+
+      const parent = node.parentElement;
+      if (parent?.closest("pre, code, .katex, math")) {
+        return NodeFilter.FILTER_REJECT;
+      }
+
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+
+  while (walker.nextNode()) {
+    textNodes.push(walker.currentNode as Text);
+  }
+
+  textNodes.forEach((textNode) => {
+    const parts = textNode.data.split("\n");
+    if (parts.length < 2) return;
+
+    const fragment = document.createDocumentFragment();
+    parts.forEach((part, index) => {
+      if (part) {
+        fragment.append(document.createTextNode(part));
+      }
+      if (index < parts.length - 1) {
+        fragment.append(document.createElement("br"));
+      }
+    });
+    textNode.replaceWith(fragment);
   });
 }
 

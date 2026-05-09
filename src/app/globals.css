@@ -127,6 +127,11 @@
 }
 
 /* KaTeX styles */
+.katex,
+.katex * {
+  box-sizing: content-box;
+}
+
 .katex-display {
   margin: 1.25rem 0;
   overflow-x: auto;

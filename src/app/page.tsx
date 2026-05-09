@@ -136,6 +136,12 @@ export default function LandingPage() {
             <Link className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground" href="/product">
               Sản phẩm
             </Link>
+            <Link className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground" href="/teacher">
+              Giáo viên
+            </Link>
+            <Link className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground" href="/study">
+              Học sinh
+            </Link>
             <Link className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground" href="/workflow">
               Quy trình
             </Link>

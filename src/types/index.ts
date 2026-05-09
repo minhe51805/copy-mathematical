@@ -1,3 +1,5 @@
+export type WorkspaceId = "general" | "teacher" | "study";
+
 export type ImageAttachment = {
   id: string;
   name: string;
@@ -45,6 +47,7 @@ export type Conversation = {
 };
 
 export interface ChatStore {
+  workspaceId: WorkspaceId;
   messages: Message[];
   conversations: Conversation[];
   currentConversationId: string | null;

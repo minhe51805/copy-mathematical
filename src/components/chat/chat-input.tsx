@@ -28,6 +28,7 @@ interface ChatInputProps {
   isLoading: boolean;
   attachments: ChatAttachment[];
   onAttachmentsChange: Dispatch<SetStateAction<ChatAttachment[]>>;
+  placeholder?: string;
 }
 
 type FormulaChip = FormulaInsertPayload & {
@@ -35,7 +36,13 @@ type FormulaChip = FormulaInsertPayload & {
   attachmentId?: string;
 };
 
-export function ChatInput({ onSend, isLoading, attachments, onAttachmentsChange }: ChatInputProps) {
+export function ChatInput({
+  onSend,
+  isLoading,
+  attachments,
+  onAttachmentsChange,
+  placeholder = "Hỏi bài toán bất kỳ",
+}: ChatInputProps) {
   const [input, setInput] = useState("");
   const [formulaChips, setFormulaChips] = useState<FormulaChip[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
@@ -54,13 +61,25 @@ export function ChatInput({ onSend, isLoading, attachments, onAttachmentsChange 
   }, [input]);
 
   useEffect(() => {
-    const handleSuggestion = (e: CustomEvent<{ text: string }>) => {
-      setInput(e.detail.text);
-      textareaRef.current?.focus();
+    const handleSuggestion = (event: Event) => {
+      const customEvent = event as CustomEvent<string | { text?: string }>;
+      const nextText = typeof customEvent.detail === "string"
+        ? customEvent.detail
+        : customEvent.detail?.text;
+
+      if (!nextText) return;
+
+      setInput(nextText);
+      window.requestAnimationFrame(() => textareaRef.current?.focus());
+    };
+    const handleOpenFormulaStudio = () => {
+      setIsFormulaStudioOpen(true);
     };
     window.addEventListener("suggestion-click", handleSuggestion as EventListener);
+    window.addEventListener("open-formula-studio", handleOpenFormulaStudio);
     return () => {
       window.removeEventListener("suggestion-click", handleSuggestion as EventListener);
+      window.removeEventListener("open-formula-studio", handleOpenFormulaStudio);
     };
   }, []);
 
@@ -424,7 +443,7 @@ export function ChatInput({ onSend, isLoading, attachments, onAttachmentsChange 
               onChange={(e) => setInput(e.target.value)}
               onPaste={handlePaste}
               onKeyDown={handleKeyDown}
-              placeholder="Hỏi bài toán bất kỳ"
+              placeholder={placeholder}
               className="max-h-[200px] min-h-[34px] flex-1 resize-none border-0 bg-transparent px-2 py-1 text-[15px] leading-6 text-foreground shadow-none placeholder:text-foreground/55 focus-visible:border-transparent focus-visible:ring-0 disabled:text-muted-foreground disabled:placeholder:text-muted-foreground/70 md:text-[15px]"
               disabled={isLoading || isProcessingFiles}
               rows={1}

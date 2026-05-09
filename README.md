@@ -1,6 +1,6 @@
 # AI Math Chat
 
-Chat UI ho tro Markdown, cong thuc toan hoc va xuat noi dung ra file Word.
+Chat UI ho tro Markdown, cong thuc toan hoc, upload file, Math Studio va xuat noi dung ra Word.
 
 ## Chay local
 
@@ -14,20 +14,30 @@ Mo `http://localhost:3000`.
 Can tao `.env.local`:
 
 ```env
-# Gemini native SDK
-GEMINI_API_KEY=...
-GEMINI_MODEL=gemini-3-flash-preview
-NEXT_PUBLIC_MODEL_NAME=Gemini
+AI_GATEWAY_PRIMARY_URL=https://gateway.ai-sketchscape.com
+AI_GATEWAY_PRIMARY_KEY=org_your_gateway_key_here
+AI_GATEWAY_MODEL=gemini-2.5-flash
 
-# Hoac OpenAI-compatible providers
-OPENAI_API_KEY=...
-OPENAI_BASE_URL=...
-OPENAI_MODEL=...
+# Tuy chon neu muon uu tien mot provider gateway
+AI_GATEWAY_PROVIDER=
+AI_GATEWAY_GENERATE_PATH=
+AI_GATEWAY_ASYNC=true
+AI_GATEWAY_SYNC_TIMEOUT_MS=35000
+AI_GATEWAY_ASYNC_TIMEOUT_MS=90000
+
+# Tuy chon neu muon tach model theo tung tinh nang
+AI_GATEWAY_CHAT_MODEL=
+AI_GATEWAY_EXPORT_MODEL=
+AI_GATEWAY_FORMULA_MODEL=
+
+NEXT_PUBLIC_MODEL_NAME=Gemini
 ```
+
+Tat ca luong goi model (`/api/chat`, `/api/export-variants`, `/api/recognize-formula`) di qua AI Gateway bang `x-api-key`. App se goi `/v1/vertex/generate` truoc va fallback sang `/v1/gemini/generate`. Chat va export dung async polling mac dinh de tranh loi Cloudflare 524 khi request lau. Mac dinh app cho async request doi toi 90 giay; neu tai lieu lon van bi timeout, hay chia yeu cau thanh tung phan nho hon hoac tach thanh flow background job co man hinh trang thai.
 
 ## Deploy day du tinh nang
 
-Ung dung nay co route server `/api/chat` va `/api/export-variants`, vi vay ban deploy day du nen dung Vercel/Netlify/Render hoac mot server Node.js co bien moi truong `GEMINI_API_KEY` hoac `OPENAI_API_KEY`.
+Ung dung nay co route server, vi vay ban deploy day du nen dung Vercel/Netlify/Render hoac mot server Node.js co bien moi truong `AI_GATEWAY_PRIMARY_URL` va `AI_GATEWAY_PRIMARY_KEY`.
 
 ## Deploy GitHub Pages
 
@@ -41,7 +51,7 @@ Trong GitHub repo:
 
 GitHub Pages chi host static file, nen API chat khong chay truc tiep tren `github.io`.
 
-`NEXT_PUBLIC_API_BASE_URL` phai la URL backend da deploy, vi du `https://ten-app.vercel.app`. Day khong phai OpenAI key. Khong dua `OPENAI_API_KEY` vao bien `NEXT_PUBLIC_*` vi no se bi dong goi vao JavaScript public.
+`NEXT_PUBLIC_API_BASE_URL` phai la URL backend da deploy, vi du `https://ten-app.vercel.app`. Day khong phai API key. Khong dua `AI_GATEWAY_PRIMARY_KEY` vao bien `NEXT_PUBLIC_*` vi no se bi dong goi vao JavaScript public.
 
 Neu dat bien trong GitHub:
 

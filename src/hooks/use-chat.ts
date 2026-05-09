@@ -9,9 +9,11 @@ import {
 import { getApiUrl, hasRuntimeApi } from "@/lib/api-url";
 import { isExportOnlyRequest } from "@/lib/export-drafts";
 import { generateId, sanitizeAssistantContent } from "@/lib/math-utils";
+import type { AssistantModeId } from "@/lib/assistant-modes";
 import type { ChatAttachment } from "@/types";
 
 interface SendMessageOptions {
+  mode?: AssistantModeId;
   onError?: (error: string) => void;
   onFinish?: (result: {
     assistantMessageId: string;
@@ -23,6 +25,7 @@ interface SendMessageOptions {
 }
 
 export function useChat(options?: SendMessageOptions) {
+  const mode = options?.mode;
   const onError = options?.onError;
   const onFinish = options?.onFinish;
   const {
@@ -110,7 +113,7 @@ export function useChat(options?: SendMessageOptions) {
 
         if (!hasRuntimeApi()) {
           throw new Error(
-            "GitHub Pages chỉ chạy giao diện tĩnh nên không có API chat. NEXT_PUBLIC_API_BASE_URL phải là URL backend đã deploy, không phải OPENAI_API_KEY. Nếu muốn chạy đủ tính năng, deploy app bằng Vercel."
+            "GitHub Pages chỉ chạy giao diện tĩnh nên không có API chat. NEXT_PUBLIC_API_BASE_URL phải là URL backend đã deploy, không phải API key. Nếu muốn chạy đủ tính năng, deploy app bằng Vercel."
           );
         }
 
@@ -118,6 +121,7 @@ export function useChat(options?: SendMessageOptions) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            mode,
             messages: messages.concat(userMessage).map((m) => ({
               role: m.role,
               content: m.content,
@@ -171,12 +175,20 @@ export function useChat(options?: SendMessageOptions) {
         });
       } catch (error) {
         console.error("Chat error:", error);
-        onError?.(error instanceof Error ? error.message : "Unknown error");
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        addMessage({
+          id: generateId(),
+          role: "assistant",
+          content: `Mình chưa lấy được phản hồi từ AI.\n\n${errorMessage}`,
+          timestamp: Date.now(),
+        });
+        saveConversation();
+        onError?.(errorMessage);
       } finally {
         setLoading(false);
       }
     },
-    [messages, isLoading, addMessage, updateMessage, setLoading, saveConversation, onError, onFinish]
+    [messages, isLoading, addMessage, updateMessage, setLoading, saveConversation, mode, onError, onFinish]
   );
 
   return {

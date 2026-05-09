@@ -1,22 +1,26 @@
 import { createCorsPreflightResponse, getCorsHeaders } from "@/lib/cors";
-import { getOpenAI } from "@/lib/openai";
-import { GoogleGenAI } from "@google/genai";
+import {
+  generateAIText,
+  getAIModel,
+  getAIProviderDebug,
+  getAIProviderLabel,
+  getAIProviderSetupError,
+  type AIContentPart,
+} from "@/lib/openai";
 import { NextRequest, NextResponse } from "next/server";
-import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 
 interface RecognizeFormulaRequest {
   imageDataUrl?: string;
 }
 
 interface RecognitionDebug {
-  provider: "gemini" | "openai-compatible" | "missing";
-  hasFormulaGeminiKey: boolean;
-  hasGeminiKey: boolean;
-  hasOpenAIKey: boolean;
-  openAIBaseUrlHost: string | null;
-  openAIModel: string | null;
+  provider: "ai-gateway" | "missing";
+  hasGatewayUrl: boolean;
+  hasGatewayKey: boolean;
+  baseUrlHost: string | null;
+  generatePath?: string | null;
+  model: string;
   formulaRecognitionModel: string;
-  attemptedFormulaModels?: string[];
   providerError?: string;
 }
 
@@ -32,48 +36,34 @@ const USER_PROMPT = [
   "Return the best LaTeX transcription only.",
 ].join("\n");
 
-const GEMINI_FORMULA_MODEL_FALLBACKS = [
-  "gemini-2.5-flash",
-  "gemini-2.0-flash",
-  "gemini-1.5-flash",
-  "gemini-3-flash-preview",
-];
-
 export function OPTIONS(req: NextRequest) {
   return createCorsPreflightResponse(req);
 }
 
 export async function POST(req: NextRequest) {
   const corsHeaders = getCorsHeaders(req);
-  const debug = getRecognitionDebug();
 
   try {
     const { imageDataUrl } = await req.json() as RecognizeFormulaRequest;
+    const debug = getRecognitionDebug();
 
     if (!isValidImageDataUrl(imageDataUrl)) {
       return NextResponse.json(
-        { error: "Missing or invalid imageDataUrl" },
+        { error: "Missing or invalid imageDataUrl", debug },
         { status: 400, headers: corsHeaders }
       );
     }
 
-    if (!getFormulaGeminiApiKey() && !process.env.OPENAI_API_KEY?.trim()) {
+    const setupError = getAIProviderSetupError();
+    if (setupError) {
       return NextResponse.json(
         {
           latex: "",
-          error: "Backend nhận dạng chưa có API key. Hãy set FORMULA_GEMINI_API_KEY trên backend đang được NEXT_PUBLIC_API_BASE_URL trỏ tới, rồi redeploy backend.",
-          debug,
-        },
-        { headers: corsHeaders }
-      );
-    }
-
-    if (!getFormulaGeminiApiKey() && !isOpenAIProviderLikelyVisionCapable()) {
-      return NextResponse.json(
-        {
-          latex: "",
-          error: buildMissingVisionProviderMessage(),
-          debug,
+          error: "Backend nhan dang chua cau hinh AI Gateway. Hay set AI_GATEWAY_PRIMARY_URL va AI_GATEWAY_PRIMARY_KEY roi redeploy backend.",
+          debug: {
+            ...debug,
+            providerError: setupError,
+          },
         },
         { headers: corsHeaders }
       );
@@ -81,18 +71,17 @@ export async function POST(req: NextRequest) {
 
     let rawLatex = "";
     try {
-      rawLatex = shouldUseGeminiForFormulaRecognition()
-        ? await recognizeWithGemini(imageDataUrl)
-        : await recognizeWithOpenAI(imageDataUrl);
+      rawLatex = await recognizeWithGateway(imageDataUrl);
     } catch (error) {
       console.error("Formula recognition provider error:", error);
       const providerError = sanitizeProviderErrorMessage(error);
+
       return NextResponse.json(
         {
           latex: "",
-          error: getRecognitionErrorMessage(error, debug),
+          error: getRecognitionErrorMessage(error),
           debug: {
-            ...debug,
+            ...getRecognitionDebug(),
             providerError,
           },
         },
@@ -106,9 +95,9 @@ export async function POST(req: NextRequest) {
       {
         latex,
         warning: !latex && looksLikeModelDidNotReadImage(rawLatex)
-          ? "Model hiện tại có thể chưa hỗ trợ đọc ảnh. Hãy dùng FORMULA_GEMINI_API_KEY hoặc model vision như gpt-4o/gemini."
+          ? "Model hien tai co the chua doc duoc anh. Hay dung model Gemini/vision tren AI Gateway."
           : undefined,
-        debug,
+        debug: getRecognitionDebug(),
       },
       { headers: corsHeaders }
     );
@@ -122,65 +111,22 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function recognizeWithGemini(imageDataUrl: string) {
-  const apiKey = getFormulaGeminiApiKey();
-  if (!apiKey) {
-    throw new Error("FORMULA_GEMINI_API_KEY or GEMINI_API_KEY environment variable is not set");
-  }
-
-  const parsed = parseImageDataUrl(imageDataUrl);
-  const ai = new GoogleGenAI({ apiKey });
-  let lastError: unknown = null;
-
-  for (const model of getFormulaRecognitionModelCandidates()) {
-    try {
-      const response = await ai.models.generateContent({
-        model,
-        contents: [
-          {
-            inlineData: {
-              mimeType: parsed.mimeType,
-              data: parsed.data,
-            },
-          },
-          { text: USER_PROMPT },
-        ],
-        config: {
-          systemInstruction: SYSTEM_PROMPT,
-          temperature: 0.05,
-        },
-      });
-
-      return response.text ?? "";
-    } catch (error) {
-      lastError = error;
-      if (!isRetryableGeminiModelError(error)) {
-        throw error;
-      }
-    }
-  }
-
-  throw lastError ?? new Error("Gemini formula recognition failed");
-}
-
-async function recognizeWithOpenAI(imageDataUrl: string) {
-  const openai = getOpenAI();
-  const model = process.env.OPENAI_MODEL || "gpt-4o";
-  const imagePart: ChatCompletionContentPart = {
+async function recognizeWithGateway(imageDataUrl: string) {
+  const model = getAIModel("formula");
+  const imagePart: AIContentPart = {
     type: "image_url",
     image_url: {
       url: imageDataUrl,
     },
   };
 
-  const completion = await openai.chat.completions.create({
+  return generateAIText({
+    purpose: "formula",
     model,
     temperature: 0.05,
+    maxOutputTokens: 512,
+    system: SYSTEM_PROMPT,
     messages: [
-      {
-        role: "system",
-        content: SYSTEM_PROMPT,
-      },
       {
         role: "user",
         content: [
@@ -193,20 +139,6 @@ async function recognizeWithOpenAI(imageDataUrl: string) {
       },
     ],
   });
-
-  return completion.choices[0]?.message?.content ?? "";
-}
-
-function parseImageDataUrl(value: string) {
-  const match = value.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
-  if (!match) {
-    throw new Error("Invalid image data URL");
-  }
-
-  return {
-    mimeType: match[1],
-    data: match[2],
-  };
 }
 
 function isValidImageDataUrl(value: unknown): value is string {
@@ -238,117 +170,53 @@ function cleanupLatex(value: string) {
 }
 
 function looksLikeModelDidNotReadImage(value: string) {
-  return /no image|không có ảnh|khong co anh|haven't provided|hasn't actually provided|unreadable|blank/i
+  return /no image|khong co anh|haven't provided|hasn't actually provided|unreadable|blank/i
     .test(value);
 }
 
-function getRecognitionErrorMessage(error: unknown, debug?: RecognitionDebug) {
+function getRecognitionErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  const providerMessage = sanitizeProviderErrorMessage(error);
 
-  if (/API key|api key/i.test(message)) {
-    return "Backend chưa có API key cho nhận dạng công thức.";
+  if (/API key|api key|401|403|unauthorized|forbidden/i.test(message)) {
+    return "AI Gateway tu choi key. Hay kiem tra AI_GATEWAY_PRIMARY_KEY tren backend.";
   }
 
-  if (debug?.provider === "gemini") {
-    return [
-      `Gemini đang fail với model nhận dạng ${debug.formulaRecognitionModel}.`,
-      providerMessage ? `Lỗi gốc: ${providerMessage}` : "Hãy thử đổi FORMULA_RECOGNITION_MODEL trên backend.",
-    ].join(" ");
+  if (/404|not found/i.test(message)) {
+    return "Endpoint hoac model nhan dang khong ton tai tren AI Gateway. Hay kiem tra AI_GATEWAY_PRIMARY_URL va model dang dung.";
   }
 
   if (/vision|image|multimodal|unsupported|model/i.test(message)) {
-    return "Model hiện tại không hỗ trợ đọc ảnh. Hãy dùng FORMULA_GEMINI_API_KEY hoặc model vision.";
+    return "Model hien tai khong ho tro doc anh. Hay chon model Gemini/vision tren AI Gateway.";
   }
 
-  if (/404/.test(message)) {
-    return "Endpoint/model nhận dạng không tồn tại trên backend hiện tại.";
-  }
-
-  return message || "Không nhận dạng được công thức.";
-}
-
-function shouldUseGeminiForFormulaRecognition() {
-  return Boolean(getFormulaGeminiApiKey());
-}
-
-function getFormulaGeminiApiKey() {
-  return process.env.FORMULA_GEMINI_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim();
-}
-
-function getFormulaRecognitionModel() {
-  return process.env.FORMULA_RECOGNITION_MODEL?.trim() || process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
-}
-
-function getFormulaRecognitionModelCandidates() {
-  const preferred = getFormulaRecognitionModel();
-  return Array.from(new Set([preferred, ...GEMINI_FORMULA_MODEL_FALLBACKS].filter(Boolean)));
-}
-
-function getRecognitionDebug(): RecognitionDebug {
-  return {
-    provider: getFormulaGeminiApiKey()
-      ? "gemini"
-      : process.env.OPENAI_API_KEY?.trim()
-        ? "openai-compatible"
-        : "missing",
-    hasFormulaGeminiKey: Boolean(process.env.FORMULA_GEMINI_API_KEY?.trim()),
-    hasGeminiKey: Boolean(process.env.GEMINI_API_KEY?.trim()),
-    hasOpenAIKey: Boolean(process.env.OPENAI_API_KEY?.trim()),
-    openAIBaseUrlHost: getOpenAIBaseUrlHost(),
-    openAIModel: process.env.OPENAI_MODEL?.trim() || null,
-    formulaRecognitionModel: getFormulaRecognitionModel(),
-    attemptedFormulaModels: shouldUseGeminiForFormulaRecognition()
-      ? getFormulaRecognitionModelCandidates()
-      : undefined,
-  };
-}
-
-function getOpenAIBaseUrlHost() {
-  const value = process.env.OPENAI_BASE_URL?.trim();
-  if (!value) return "api.openai.com";
-
-  try {
-    return new URL(value).host;
-  } catch {
-    return value;
-  }
-}
-
-function isRetryableGeminiModelError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  return /404|not found|not supported|unsupported|model|vision|image|multimodal/i.test(message);
+  return message || "Khong nhan dang duoc cong thuc.";
 }
 
 function sanitizeProviderErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   return message
     .replace(/AIza[0-9A-Za-z_-]{20,}/g, "[redacted-api-key]")
+    .replace(/\b(?:sk|org)_[0-9A-Za-z_-]+/g, "[redacted-api-key]")
     .replace(/key=[0-9A-Za-z_-]+/gi, "key=[redacted]")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 360);
 }
 
-function isOpenAIProviderLikelyVisionCapable() {
-  const model = process.env.OPENAI_MODEL?.trim().toLowerCase() ?? "";
-  const baseUrl = process.env.OPENAI_BASE_URL?.trim().toLowerCase() ?? "";
+function getRecognitionDebug(): RecognitionDebug {
+  const providerDebug = getAIProviderDebug();
 
-  if (/minimax|deepseek|text|m2\.7|m1|kimi|qwen|llama/.test(`${baseUrl} ${model}`)) {
-    return false;
-  }
-
-  return /gpt-4o|gpt-4\.1|gpt-5|o3|o4|vision|gemini|claude|pixtral|llava/.test(model);
+  return {
+    provider: providerDebug.provider,
+    hasGatewayUrl: providerDebug.hasGatewayUrl,
+    hasGatewayKey: providerDebug.hasGatewayKey,
+    baseUrlHost: providerDebug.baseUrlHost,
+    generatePath: providerDebug.generatePath,
+    model: getAIModel("chat"),
+    formulaRecognitionModel: getAIModel("formula"),
+  };
 }
 
-function buildMissingVisionProviderMessage() {
-  const debug = getRecognitionDebug();
-  const model = debug.openAIModel ?? "OPENAI_MODEL chưa đặt";
-  const host = debug.openAIBaseUrlHost ?? "OPENAI_BASE_URL chưa đặt";
-
-  return [
-    "Backend nhận dạng chưa thấy FORMULA_GEMINI_API_KEY.",
-    `Hiện nó chỉ thấy provider chat ${host} / ${model}, model này không đọc ảnh nên Math Studio không thể nhận dạng nét vẽ.`,
-    "Nếu bạn đã thêm key rồi, hãy redeploy backend/Vercel và kiểm tra NEXT_PUBLIC_API_BASE_URL đang trỏ đúng backend mới nhất.",
-  ].join(" ");
+export function getRecognitionProviderLabelForDebug() {
+  return getAIProviderLabel();
 }

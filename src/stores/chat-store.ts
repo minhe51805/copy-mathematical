@@ -1,13 +1,17 @@
 import { create } from "zustand";
-import type { ChatStore, Message, Conversation } from "@/types";
+import type { ChatStore, Message, Conversation, WorkspaceId } from "@/types";
 import { generateId, sanitizeAssistantContent } from "@/lib/math-utils";
 
 const STORAGE_KEY = "math-chat-conversations";
 
-function loadFromStorage(): Conversation[] {
+function getStorageKey(workspaceId: WorkspaceId) {
+  return workspaceId === "general" ? STORAGE_KEY : `${STORAGE_KEY}-${workspaceId}`;
+}
+
+function loadFromStorage(workspaceId: WorkspaceId): Conversation[] {
   if (typeof window === "undefined") return [];
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
+    const data = localStorage.getItem(getStorageKey(workspaceId));
     const conversations = data ? JSON.parse(data) as Conversation[] : [];
     return conversations.map((conversation) => ({
       ...conversation,
@@ -22,16 +26,17 @@ function loadFromStorage(): Conversation[] {
   }
 }
 
-function saveToStorage(conversations: Conversation[]) {
+function saveToStorage(workspaceId: WorkspaceId, conversations: Conversation[]) {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+    localStorage.setItem(getStorageKey(workspaceId), JSON.stringify(conversations));
   } catch {
     // Ignore storage errors
   }
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
+  workspaceId: "general",
   messages: [],
   conversations: [],
   currentConversationId: null,
@@ -52,7 +57,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   setMessageExportSource: (id: string, exportSource) => {
-    const { messages, conversations, currentConversationId } = get();
+    const { messages, conversations, currentConversationId, workspaceId } = get();
     const nextMessages = messages.map((message) =>
       message.id === id ? { ...message, exportSource } : message
     );
@@ -69,12 +74,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     });
 
     if (targetConversationId) {
-      saveToStorage(nextConversations);
+      saveToStorage(workspaceId, nextConversations);
     }
   },
 
   removeAttachment: (attachmentId: string) => {
-    const { messages, conversations, currentConversationId } = get();
+    const { messages, conversations, currentConversationId, workspaceId } = get();
     const nextMessages = messages.map((message) => ({
       ...message,
       attachments: message.attachments?.filter((attachment) => attachment.id !== attachmentId),
@@ -92,7 +97,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     });
 
     if (currentConversationId) {
-      saveToStorage(nextConversations);
+      saveToStorage(workspaceId, nextConversations);
     }
   },
 
@@ -105,7 +110,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   saveConversation: () => {
-    const { messages, conversations, currentConversationId } = get();
+    const { messages, conversations, currentConversationId, workspaceId } = get();
     if (messages.length === 0) return;
 
     const title = messages[0]?.content?.slice(0, 50) || "New chat";
@@ -128,7 +133,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       updatedConversations.unshift(newConv);
     }
 
-    saveToStorage(updatedConversations);
+    saveToStorage(workspaceId, updatedConversations);
     set({ conversations: updatedConversations, currentConversationId: nextConversationId });
   },
 
@@ -143,8 +148,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   deleteConversation: (id: string) => {
+    const { workspaceId } = get();
     const updated = get().conversations.filter((c) => c.id !== id);
-    saveToStorage(updated);
+    saveToStorage(workspaceId, updated);
     set({ conversations: updated });
     if (get().currentConversationId === id) {
       set({ messages: [], currentConversationId: null });
@@ -152,7 +158,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   clearAllConversations: () => {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(getStorageKey(get().workspaceId));
     set({ conversations: [], messages: [], currentConversationId: null });
   },
 
@@ -161,7 +167,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 }));
 
-export function initializeStore() {
-  const conversations = loadFromStorage();
-  useChatStore.setState({ conversations });
+export function initializeStore(workspaceId: WorkspaceId = "general") {
+  const conversations = loadFromStorage(workspaceId);
+  useChatStore.setState({
+    workspaceId,
+    conversations,
+    messages: [],
+    currentConversationId: null,
+  });
 }

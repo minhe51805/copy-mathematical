@@ -9,9 +9,20 @@ interface HeaderProps {
   isSidebarOpen?: boolean;
   userLabel?: string;
   onLogout?: () => void;
+  title?: string;
+  subtitle?: string;
+  badge?: string;
 }
 
-export function Header({ onMenuClick, isSidebarOpen, userLabel, onLogout }: HeaderProps) {
+export function Header({
+  onMenuClick,
+  isSidebarOpen,
+  userLabel,
+  onLogout,
+  title = "AI Math Chat",
+  subtitle = "Trợ lý toán học thông minh",
+  badge,
+}: HeaderProps) {
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:px-6">
       <div className="flex min-w-0 items-center gap-3">
@@ -29,11 +40,11 @@ export function Header({ onMenuClick, isSidebarOpen, userLabel, onLogout }: Head
           )}
         </Button>
         <div className="min-w-0">
-          <h1 className="truncate font-sans text-[15px] font-semibold leading-5">AI Math Chat</h1>
-          <p className="hidden text-xs text-muted-foreground sm:block">Trợ lý toán học thông minh</p>
+          <h1 className="truncate font-sans text-[15px] font-semibold leading-5">{title}</h1>
+          <p className="hidden text-xs text-muted-foreground sm:block">{subtitle}</p>
         </div>
         <span className="claude-badge hidden px-3 py-1 text-xs text-muted-foreground sm:inline-flex">
-          {process.env.NEXT_PUBLIC_MODEL_NAME || "AI"}
+          {badge ?? process.env.NEXT_PUBLIC_MODEL_NAME ?? "AI"}
         </span>
       </div>
 

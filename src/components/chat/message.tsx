@@ -11,13 +11,15 @@ import { formatTimestamp } from "@/lib/math-utils";
 import type { ChatAttachment, DocumentAttachment, ImageAttachment, Message as MessageType } from "@/types";
 import { cn } from "@/lib/utils";
 import { MathRenderer } from "./math-renderer";
+import { TestPdfActions } from "./test-pdf-actions";
 
 interface MessageProps {
   message: MessageType;
   onExport?: (content: string, request?: string | null) => void;
+  testPaperContent?: string;
 }
 
-export function Message({ message, onExport }: MessageProps) {
+export function Message({ message, onExport, testPaperContent }: MessageProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
@@ -58,6 +60,7 @@ export function Message({ message, onExport }: MessageProps) {
         >
           <div
             ref={contentRef}
+            data-font="mathtype"
             onCopy={(event) => {
               writeRenderedSelectionToClipboard(event.nativeEvent, contentRef.current, message.content);
             }}
@@ -91,6 +94,10 @@ export function Message({ message, onExport }: MessageProps) {
               request={message.exportSource.request}
               onOpen={handleExport}
             />
+          )}
+
+          {!isUser && testPaperContent && (
+            <TestPdfActions content={testPaperContent} />
           )}
 
           <div

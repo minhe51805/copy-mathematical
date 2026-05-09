@@ -1,8 +1,7 @@
 import { createCorsPreflightResponse, getCorsHeaders } from "@/lib/cors";
 import { normalizeExportDrafts } from "@/lib/export-drafts";
-import { generateGeminiText, shouldUseGeminiNative } from "@/lib/gemini";
 import { sanitizeAssistantContent } from "@/lib/math-utils";
-import { getOpenAI } from "@/lib/openai";
+import { generateAIText, getAIModel, getAIProviderSetupError } from "@/lib/openai";
 import { NextRequest, NextResponse } from "next/server";
 
 interface ExportVariantResponse {
@@ -33,11 +32,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
+    const setupError = getAIProviderSetupError();
+    if (setupError) {
       return NextResponse.json(
         {
           variants: createFallbackVariants(sanitizedContent, request),
-          warning: "Missing AI API key, using fallback export variants.",
+          warning: `${setupError} Using fallback export variants.`,
         },
         { headers: corsHeaders }
       );
@@ -45,14 +45,7 @@ export async function POST(req: NextRequest) {
 
     let raw = "";
     try {
-      raw = shouldUseGeminiNative()
-        ? await generateGeminiText({
-            systemInstruction: getExportSystemPrompt(),
-            prompt: getExportUserPrompt(sanitizedContent, request),
-            temperature: 0.35,
-            json: true,
-          })
-        : await generateOpenAIExportText(sanitizedContent, request);
+      raw = await generateGatewayExportText(sanitizedContent, request);
     } catch (error) {
       console.error("Export variants AI generation failed:", error);
       return NextResponse.json(
@@ -82,25 +75,22 @@ function createFallbackVariants(content: string, request?: string) {
   return normalizeExportDrafts([], content, request);
 }
 
-async function generateOpenAIExportText(content: string, request?: string) {
-  const openai = getOpenAI();
-  const model = process.env.OPENAI_MODEL || "gpt-4o";
-  const completion = await openai.chat.completions.create({
+async function generateGatewayExportText(content: string, request?: string) {
+  const model = getAIModel("export");
+
+  return generateAIText({
+    purpose: "export",
     model,
     temperature: 0.35,
+    maxOutputTokens: 8192,
+    system: getExportSystemPrompt(),
     messages: [
-      {
-        role: "system",
-        content: getExportSystemPrompt(),
-      },
       {
         role: "user",
         content: getExportUserPrompt(content, request),
       },
     ],
   });
-
-  return completion.choices[0]?.message?.content ?? "";
 }
 
 function getExportSystemPrompt() {

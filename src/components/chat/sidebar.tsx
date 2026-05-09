@@ -8,12 +8,14 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import type { WorkspaceId } from "@/types";
 
 interface SidebarProps {
   onChatSelect?: () => void;
+  workspaceId?: WorkspaceId;
 }
 
-export function Sidebar({ onChatSelect }: SidebarProps) {
+export function Sidebar({ onChatSelect, workspaceId = "general" }: SidebarProps) {
   const router = useRouter();
   const {
     conversations,
@@ -26,13 +28,13 @@ export function Sidebar({ onChatSelect }: SidebarProps) {
 
   const handleNewChat = () => {
     createNewConversation();
-    router.push("/newchat");
+    router.push(getWorkspacePath(workspaceId));
     onChatSelect?.();
   };
 
   const handleSelectChat = (id: string) => {
     loadConversation(id);
-    router.push(`/newchat?=#${encodeURIComponent(id)}`);
+    router.push(`${getWorkspacePath(workspaceId)}?=#${encodeURIComponent(id)}`);
     onChatSelect?.();
   };
 
@@ -43,8 +45,8 @@ export function Sidebar({ onChatSelect }: SidebarProps) {
           ∑
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">AI Math Chat</p>
-          <p className="truncate text-xs text-[#FAF9F5]/65">Trợ lý toán học</p>
+          <p className="truncate text-sm font-semibold">{getWorkspaceTitle(workspaceId)}</p>
+          <p className="truncate text-xs text-[#FAF9F5]/65">{getWorkspaceSubtitle(workspaceId)}</p>
         </div>
       </div>
 
@@ -55,7 +57,7 @@ export function Sidebar({ onChatSelect }: SidebarProps) {
           className="h-11 w-full justify-start gap-2 rounded-[9.6px] border-white/15 bg-white/[0.03] px-3 text-sm text-[#FAF9F5] hover:border-white/25 hover:bg-white/[0.07] hover:text-white"
         >
           <Plus className="h-4 w-4" />
-          <span className="truncate font-medium">Tạo cuộc trò chuyện mới</span>
+          <span className="truncate font-medium">{getNewChatLabel(workspaceId)}</span>
         </Button>
       </div>
 
@@ -135,4 +137,28 @@ export function Sidebar({ onChatSelect }: SidebarProps) {
       )}
     </div>
   );
+}
+
+function getWorkspacePath(workspaceId: WorkspaceId) {
+  if (workspaceId === "teacher") return "/teacher";
+  if (workspaceId === "study") return "/study";
+  return "/newchat";
+}
+
+function getWorkspaceTitle(workspaceId: WorkspaceId) {
+  if (workspaceId === "teacher") return "Teacher Studio";
+  if (workspaceId === "study") return "Study Coach";
+  return "AI Math Chat";
+}
+
+function getWorkspaceSubtitle(workspaceId: WorkspaceId) {
+  if (workspaceId === "teacher") return "Soạn giáo án";
+  if (workspaceId === "study") return "Giải bài tập";
+  return "Trợ lý toán học";
+}
+
+function getNewChatLabel(workspaceId: WorkspaceId) {
+  if (workspaceId === "teacher") return "Tạo hồ sơ soạn bài mới";
+  if (workspaceId === "study") return "Tạo phiên học mới";
+  return "Tạo cuộc trò chuyện mới";
 }
