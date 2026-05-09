@@ -9,7 +9,7 @@ type MarketingPage = "product" | "workflow" | "pricing" | "teacher" | "study";
 const NAV_ITEMS: Array<{ href: string; label: string; value: MarketingPage }> = [
   { href: "/product", label: "Sản phẩm", value: "product" },
   { href: "/teacher", label: "Giáo viên", value: "teacher" },
-  { href: "/study", label: "Học sinh", value: "study" },
+  { href: "/newchat", label: "Học sinh", value: "study" },
   { href: "/workflow", label: "Quy trình", value: "workflow" },
   { href: "/pricing", label: "Pricing", value: "pricing" },
 ];

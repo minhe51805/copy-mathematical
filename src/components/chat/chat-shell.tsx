@@ -129,7 +129,6 @@ export function ChatShell({ mode }: ChatShellProps) {
 
 function getWorkspacePath(workspaceId: WorkspaceId) {
   if (workspaceId === "teacher") return "/teacher";
-  if (workspaceId === "study") return "/study";
   return "/newchat";
 }
 

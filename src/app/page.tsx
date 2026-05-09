@@ -139,7 +139,7 @@ export default function LandingPage() {
             <Link className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground" href="/teacher">
               Giáo viên
             </Link>
-            <Link className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground" href="/study">
+            <Link className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground" href="/newchat">
               Học sinh
             </Link>
             <Link className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground" href="/workflow">

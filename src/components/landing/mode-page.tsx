@@ -73,8 +73,8 @@ export function ModePage({ config, sibling }: ModePageProps) {
           <div>
             <h2 className="text-3xl font-normal md:text-5xl">Luồng phát triển đề xuất.</h2>
             <p className="mt-4 text-base leading-7 text-muted-foreground">
-              Chat prompt hiện tại vẫn giữ nguyên. Hai mode này nên đi theo preset riêng, sau này khi mở chat sẽ truyền
-              `mode=teacher` hoặc `mode=study` để backend chọn prompt tương ứng.
+              Chat prompt hiện tại vẫn giữ nguyên. Workspace giáo viên dùng preset riêng; khi mở chat sẽ truyền
+              `mode=teacher` khi cần workspace giáo viên; người học dùng `/newchat` để chat bình thường.
             </p>
           </div>
           <div className="grid gap-3">

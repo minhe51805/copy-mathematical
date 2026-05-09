@@ -146,7 +146,7 @@ export const ASSISTANT_MODES: Record<AssistantModeId, AssistantModeConfig> = {
   },
   study: {
     id: "study",
-    route: "/study",
+    route: "/newchat",
     badge: "Mode học sinh & phụ huynh",
     title: "Giải bài tập dễ hiểu, giúp học sinh tự làm lại được.",
     subtitle:

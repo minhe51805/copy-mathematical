@@ -141,24 +141,20 @@ export function Sidebar({ onChatSelect, workspaceId = "general" }: SidebarProps)
 
 function getWorkspacePath(workspaceId: WorkspaceId) {
   if (workspaceId === "teacher") return "/teacher";
-  if (workspaceId === "study") return "/study";
   return "/newchat";
 }
 
 function getWorkspaceTitle(workspaceId: WorkspaceId) {
   if (workspaceId === "teacher") return "Teacher Studio";
-  if (workspaceId === "study") return "Study Coach";
   return "AI Math Chat";
 }
 
 function getWorkspaceSubtitle(workspaceId: WorkspaceId) {
   if (workspaceId === "teacher") return "Soạn giáo án";
-  if (workspaceId === "study") return "Giải bài tập";
   return "Trợ lý toán học";
 }
 
 function getNewChatLabel(workspaceId: WorkspaceId) {
   if (workspaceId === "teacher") return "Tạo hồ sơ soạn bài mới";
-  if (workspaceId === "study") return "Tạo phiên học mới";
   return "Tạo cuộc trò chuyện mới";
 }
