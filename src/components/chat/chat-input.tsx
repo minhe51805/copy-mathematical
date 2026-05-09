@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowUp, FileText, Loader2, Paperclip, Sigma, Table2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -319,11 +320,13 @@ export function ChatInput({ onSend, isLoading, attachments, onAttachmentsChange 
       .map((formula) => formula.attachmentId)
   );
   const visibleAttachments = attachments.filter((attachment) => !formulaAttachmentIds.has(attachment.id));
-
-  return (
-    <div className="shrink-0 border-t bg-background/95 px-3 pb-4 pt-3 backdrop-blur sm:px-4 md:px-6 md:pb-6 lg:px-8">
-      {isDraggingFile && (
-        <div className="pointer-events-auto fixed inset-0 z-[9999] flex items-center justify-center bg-background/90 p-6 backdrop-blur-sm">
+  const dragOverlay = typeof document !== "undefined" && isDraggingFile
+    ? createPortal(
+        <div
+          className="pointer-events-auto fixed inset-0 z-[9999] grid place-items-center bg-background/90 p-6 backdrop-blur-sm"
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+        >
           <div className="flex w-full max-w-md flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[hsl(var(--terracotta))] bg-card px-8 py-10 text-center shadow-[var(--shadow-md)]">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-[hsl(var(--terracotta))]">
               {isProcessingFiles ? (
@@ -337,8 +340,15 @@ export function ChatInput({ onSend, isLoading, attachments, onAttachmentsChange 
               <p className="mt-1 text-sm text-muted-foreground">Ảnh, PDF, DOCX, Excel hoặc CSV</p>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+        document.body
+      )
+    : null;
+
+  return (
+    <>
+      {dragOverlay}
+      <div className="shrink-0 border-t bg-background/95 px-3 pb-4 pt-3 backdrop-blur sm:px-4 md:px-6 md:pb-6 lg:px-8">
       <div className="mx-auto w-full max-w-3xl">
         <div
           className={cn(
@@ -461,7 +471,8 @@ export function ChatInput({ onSend, isLoading, attachments, onAttachmentsChange 
         onOpenChange={setIsFormulaStudioOpen}
         onInsert={insertFormulaChip}
       />
-    </div>
+      </div>
+    </>
   );
 }
 

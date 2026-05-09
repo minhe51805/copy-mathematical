@@ -264,6 +264,35 @@
   margin: 0;
 }
 
+.formula-palette-preview {
+  min-width: 0;
+  --formula-preview-scale: 1;
+}
+
+.formula-palette-preview p {
+  margin: 0;
+}
+
+.formula-palette-preview .katex {
+  display: inline-block;
+  flex: 0 0 auto;
+  font-size: 1em;
+  line-height: 1;
+  max-width: none;
+  transform: scale(var(--formula-preview-scale));
+  transform-origin: center center;
+  white-space: nowrap;
+}
+
+.formula-palette-preview .katex-html {
+  max-width: none;
+  overflow: visible;
+}
+
+.formula-palette-preview .katex-display {
+  margin: 0;
+}
+
 /* Custom scrollbar - chatgpt style */
 ::-webkit-scrollbar {
   width: 6px;
