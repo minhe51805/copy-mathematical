@@ -124,8 +124,17 @@ const CLIPBOARD_CSS = `
   .math-chat-copy .katex-display > .katex { display: block; padding: 3px 0; text-align: center; }
   .math-chat-copy .katex-html { white-space: nowrap; }
   .math-chat-copy math {
-    font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", serif;
+    font-family: "Times New Roman", Times, Symbol, "MT Extra", serif;
     font-size: 1.08em;
+  }
+  .math-chat-copy [data-font="mathtype"] math {
+    font-family: "Times New Roman", Times, Symbol, "MT Extra", serif;
+  }
+  .math-chat-copy [data-font="euclid"] math {
+    font-family: Euclid, "Euclid Math One", "Euclid Symbol", "Times New Roman", serif;
+  }
+  .math-chat-copy [data-font="cambria"] math {
+    font-family: "Cambria Math", Cambria, "Times New Roman", serif;
   }
 `;
 
@@ -245,6 +254,7 @@ function getMathmlElement(node: Element, displayMode?: "inline" | "block") {
   if (!math) return null;
 
   const clone = math.cloneNode(true) as Element;
+  const font = getFormulaFont(node);
   clone.setAttribute("xmlns", "http://www.w3.org/1998/Math/MathML");
 
   if (displayMode) {
@@ -252,7 +262,37 @@ function getMathmlElement(node: Element, displayMode?: "inline" | "block") {
   }
 
   cleanupMathmlForClipboard(clone);
+  const fontFamily = getClipboardMathFontFamily(font);
+  if (fontFamily) {
+    clone.setAttribute("style", `font-family: ${fontFamily};`);
+  }
   return clone;
+}
+
+function getFormulaFont(node: Element) {
+  return node.closest("[data-font]")?.getAttribute("data-font") ?? "mathtype";
+}
+
+function getClipboardMathFontFamily(font: string) {
+  switch (font) {
+    case "euclid":
+      return 'Euclid, "Euclid Math One", "Euclid Symbol", "Times New Roman", serif';
+    case "cambria":
+      return '"Cambria Math", Cambria, "Times New Roman", serif';
+    case "latin-modern":
+      return '"Latin Modern Math", "Cambria Math", "STIX Two Math", serif';
+    case "stix":
+      return '"STIX Two Math", STIXGeneral, "Cambria Math", serif';
+    case "xits":
+      return '"XITS Math", XITS, "Cambria Math", serif';
+    case "noto-serif":
+      return '"Noto Serif Math", "Noto Serif", "Cambria Math", serif';
+    case "times":
+    case "mathtype":
+      return '"Times New Roman", Times, Symbol, "MT Extra", serif';
+    default:
+      return '"Times New Roman", Times, Symbol, "MT Extra", serif';
+  }
 }
 
 function cleanupMathmlForClipboard(math: Element) {

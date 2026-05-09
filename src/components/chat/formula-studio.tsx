@@ -40,6 +40,8 @@ interface FormulaStudioProps {
 }
 
 export type FormulaFont =
+  | "mathtype"
+  | "euclid"
   | "katex"
   | "cambria"
   | "latin-modern"
@@ -86,6 +88,8 @@ const DRAWING_HEIGHT = 300;
 const RECOGNITION_DEBOUNCE_MS = 850;
 
 const FONT_OPTIONS: Array<{ value: FormulaFont; label: string }> = [
+  { value: "mathtype", label: "MathType Classic" },
+  { value: "euclid", label: "Euclid MathType" },
   { value: "katex", label: "KaTeX Math" },
   { value: "cambria", label: "Cambria Math" },
   { value: "latin-modern", label: "Latin Modern Math" },
@@ -159,7 +163,7 @@ const SYMBOL_GROUPS = [
 export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioProps) {
   const [mode, setMode] = useState<"typing" | "drawing">("typing");
   const [latex, setLatex] = useState(DEFAULT_LATEX);
-  const [font, setFont] = useState<FormulaFont>("katex");
+  const [font, setFont] = useState<FormulaFont>("mathtype");
   const [isFontMenuOpen, setIsFontMenuOpen] = useState(false);
   const [isItalic, setIsItalic] = useState(true);
   const [isDisplay, setIsDisplay] = useState(true);
@@ -443,8 +447,8 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden border-border/15 bg-card p-0 text-foreground sm:max-w-5xl">
-        <DialogHeader className="border-b bg-card px-5 py-4">
+      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden border-border/15 bg-[hsl(var(--card))] p-0 text-foreground shadow-[var(--shadow-md)] sm:max-w-5xl">
+        <DialogHeader className="border-b border-border/15 bg-[hsl(var(--card))] px-5 py-4">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary text-[hsl(var(--terracotta))]">
               <Sigma className="h-[18px] w-[18px]" />
@@ -456,7 +460,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
           </DialogDescription>
         </DialogHeader>
 
-        <div className="border-b bg-background px-5 py-3">
+        <div className="border-b border-border/15 bg-[hsl(var(--background))] px-5 py-3">
           <div className="inline-flex rounded-xl border border-border/15 bg-card p-1 shadow-[var(--shadow-sm)]">
             <button
               type="button"
@@ -486,7 +490,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
         {mode === "typing" ? (
           <div className="grid min-h-0 flex-1 overflow-hidden md:grid-cols-[minmax(0,1fr)_320px]">
             <section className="flex min-h-0 flex-col border-b md:border-b-0 md:border-r">
-              <div className="border-b bg-card p-4">
+              <div className="border-b border-border/15 bg-[hsl(var(--card))] p-4">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   <div className="relative min-w-[15rem]" onClick={(event) => event.stopPropagation()}>
                     <button
@@ -554,17 +558,17 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
                   value={latex}
                   onChange={(event) => setLatex(event.target.value)}
                   spellCheck={false}
-                  className="min-h-32 resize-none font-mono text-sm leading-6"
+                  className="min-h-32 resize-none border-border/15 bg-[hsl(var(--card))] font-mono text-sm leading-6 text-foreground placeholder:text-muted-foreground"
                 />
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto bg-background p-4">
+              <div className="min-h-0 flex-1 overflow-y-auto bg-[hsl(var(--background))] p-4">
                 <div
                   ref={previewRef}
                   data-font={font}
                   data-italic={isItalic ? "on" : "off"}
                   className={cn(
-                    "formula-studio-preview min-h-40 select-text rounded-xl border border-border/15 bg-card p-5 shadow-[var(--shadow-sm)]",
+                    "formula-studio-preview min-h-40 select-text rounded-xl border border-border/15 bg-[hsl(var(--card))] p-5 shadow-[var(--shadow-sm)]",
                     "text-[17px] leading-8"
                   )}
                   onCopy={(event) => {
@@ -576,7 +580,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
               </div>
             </section>
 
-            <aside className="min-h-0 overflow-y-auto bg-background p-4">
+            <aside className="min-h-0 overflow-y-auto bg-[hsl(var(--background))] p-4">
               <div className="grid gap-4">
                 {SYMBOL_GROUPS.map((group) => {
                   const Icon = group.icon;
@@ -607,8 +611,8 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
             </aside>
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
-            <div className="grid gap-3 border-b bg-card p-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[hsl(var(--background))]">
+            <div className="grid gap-3 border-b border-border/15 bg-[hsl(var(--card))] p-4 lg:grid-cols-[minmax(0,1fr)_360px]">
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
@@ -713,7 +717,7 @@ export function FormulaStudio({ open, onOpenChange, onInsert }: FormulaStudioPro
           </div>
         )}
 
-        <DialogFooter className="gap-2 border-t bg-card px-5 py-4 sm:justify-between">
+        <DialogFooter className="gap-2 border-t border-border/15 bg-[hsl(var(--card))] px-5 py-4 sm:justify-between">
           {mode === "typing" ? (
             <>
               <div className="flex flex-wrap gap-2">
@@ -755,7 +759,7 @@ function buildFormulaMarkdown(latex: string, isDisplay: boolean) {
 }
 
 function getFontLabel(font: FormulaFont) {
-  return FONT_OPTIONS.find((option) => option.value === font)?.label ?? "KaTeX Math";
+  return FONT_OPTIONS.find((option) => option.value === font)?.label ?? "MathType Classic";
 }
 
 function getRecognitionDebugHint(debug?: FormulaRecognitionDebug) {

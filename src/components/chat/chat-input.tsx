@@ -415,7 +415,7 @@ export function ChatInput({ onSend, isLoading, attachments, onAttachmentsChange 
               onPaste={handlePaste}
               onKeyDown={handleKeyDown}
               placeholder="Hỏi bài toán bất kỳ"
-              className="max-h-[200px] min-h-[34px] flex-1 resize-none border-0 bg-transparent px-2 py-1 text-[15px] leading-6 shadow-none placeholder:text-muted-foreground focus-visible:border-transparent focus-visible:ring-0 md:text-[15px]"
+              className="max-h-[200px] min-h-[34px] flex-1 resize-none border-0 bg-transparent px-2 py-1 text-[15px] leading-6 text-foreground shadow-none placeholder:text-foreground/55 focus-visible:border-transparent focus-visible:ring-0 disabled:text-muted-foreground disabled:placeholder:text-muted-foreground/70 md:text-[15px]"
               disabled={isLoading || isProcessingFiles}
               rows={1}
             />
