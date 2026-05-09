@@ -24,6 +24,8 @@ export function Message({ message, onExport, testPaperContent }: MessageProps) {
   const [copied, setCopied] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const isUser = message.role === "user";
+  const isProviderFallback = isProviderFallbackMessage(message.content)
+    || isProviderFallbackMessage(message.exportSource?.content ?? "");
 
   const handleCopy = async () => {
     if (isCopying) return;
@@ -88,7 +90,7 @@ export function Message({ message, onExport, testPaperContent }: MessageProps) {
             ) : null}
           </div>
 
-          {!isUser && message.exportSource && onExport && (
+          {!isUser && !isProviderFallback && message.exportSource && onExport && (
             <ExportDocumentCard
               content={message.exportSource.content}
               request={message.exportSource.request}
@@ -142,7 +144,7 @@ export function Message({ message, onExport, testPaperContent }: MessageProps) {
               </TooltipContent>
             </Tooltip>
 
-            {!isUser && (
+            {!isUser && !isProviderFallback && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -224,6 +226,18 @@ function getExportDocumentTitle(content: string, request?: string | null) {
     .trim();
 
   return `${compactTitle}${firstUsefulLine.length > 42 ? "..." : ""}.doc`;
+}
+
+function isProviderFallbackMessage(content: string) {
+  const normalized = content
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  return normalized.includes("minh chua lay duoc phan hoi tu ai")
+    || normalized.includes("ai gateway dang ket")
+    || normalized.includes("ai gateway xu ly qua lau")
+    || normalized.includes("provider unavailable");
 }
 
 function MessageAttachment({

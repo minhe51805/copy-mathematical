@@ -49,6 +49,13 @@ const STRIP_MARKDOWN_PATTERNS: Array<[RegExp, string]> = [
 const KATEX_CSS_URL = "https://cdn.jsdelivr.net/npm/katex@0.16.45/dist/katex.min.css";
 const MATHTYPE_FONT_STACK = '"Times New Roman", "Cambria Math", Symbol, "MT Extra", serif';
 
+type RectBounds = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+};
+
 const KATEX_COPY_STYLE_PROPERTIES = [
   "background",
   "background-color",
@@ -164,7 +171,7 @@ export async function copyRenderedContent(element: HTMLElement | null, fallbackM
     return;
   }
 
-  const html = createClipboardHtml(element);
+  const html = singleMathml ? createMathTypeClipboardHtml(element) : createClipboardHtml(element);
 
   try {
     await withTimeout(
@@ -193,12 +200,20 @@ export function writeRenderedSelectionToClipboard(
     return false;
   }
 
-  const selectedMathElement = getSingleSelectedMathElement(root, selection);
+  const selectedMathElement =
+    getSingleSelectedMathElement(root, selection) ??
+    getSingleVisuallySelectedMathElement(root, selection);
   const container = document.createElement("div");
-  const selectedMathml = selectedMathElement ? getSerializedMathml(selectedMathElement) : "";
 
   if (selectedMathElement) {
     container.append(selectedMathElement.cloneNode(true));
+    inlineSelectedKatexStyles(root, container);
+
+    const plainText = getLatexMathPlainText(selectedMathElement);
+    event.preventDefault();
+    event.clipboardData.setData("text/plain", plainText);
+    void copyRenderedContent(container, plainText);
+    return true;
   } else {
     for (let index = 0; index < selection.rangeCount; index += 1) {
       container.append(selection.getRangeAt(index).cloneContents());
@@ -209,22 +224,42 @@ export function writeRenderedSelectionToClipboard(
 
   const html = createClipboardHtml(container);
   const plainText = selectedMathElement
-    ? getMathPlainText(selectedMathElement)
+    ? getLatexMathPlainText(selectedMathElement)
     : getPlainText(container);
   const fallbackText = stripMarkdown(normalizeMathMarkdown(fallbackMarkdown));
 
   event.preventDefault();
   event.clipboardData.setData("text/html", html);
   event.clipboardData.setData("text/plain", plainText || fallbackText);
-  if (selectedMathml) {
-    setOptionalClipboardData(event.clipboardData, "application/mathml+xml", selectedMathml);
-    setOptionalClipboardData(event.clipboardData, "text/mathml", selectedMathml);
-    setOptionalClipboardData(event.clipboardData, "MathML Presentation", wrapMathTypeClipboardMathml(selectedMathml));
-  }
   return true;
 }
 
 function createClipboardHtml(element: HTMLElement): string {
+  const clone = element.cloneNode(true) as HTMLElement;
+  inlineKatexStyles(element, clone);
+  trimUiOnlyAttributes(clone);
+  preserveSoftLineBreaks(clone);
+  // Keep visual KaTeX spans for Word paste. Replacing with MathML makes Word
+  // auto-convert formulas into Office Equation objects, which breaks the
+  // MathType-like copy workflow users expect from the chat surface.
+  prepareKatexForVisualClipboard(clone);
+
+  return [
+    "<!doctype html>",
+    "<html>",
+    "<head>",
+    '<meta charset="utf-8">',
+    `<link rel="stylesheet" href="${KATEX_CSS_URL}">`,
+    `<style>${CLIPBOARD_CSS}</style>`,
+    "</head>",
+    "<body>",
+    `<div class="math-chat-copy">${clone.innerHTML}</div>`,
+    "</body>",
+    "</html>",
+  ].join("");
+}
+
+function createMathTypeClipboardHtml(element: HTMLElement): string {
   const clone = element.cloneNode(true) as HTMLElement;
   inlineKatexStyles(element, clone);
   trimUiOnlyAttributes(clone);
@@ -362,9 +397,7 @@ function getMathmlElement(node: Element, displayMode?: "inline" | "block") {
 
   cleanupMathmlForClipboard(clone);
   const fontFamily = getClipboardMathFontFamily(font);
-  if (fontFamily) {
-    clone.setAttribute("style", `font-family: ${fontFamily};`);
-  }
+  clone.setAttribute("style", `font-family: ${fontFamily};`);
   return clone;
 }
 
@@ -388,7 +421,6 @@ function getClipboardMathFontFamily(font: string) {
       return '"Noto Serif Math", "Noto Serif", "Cambria Math", serif';
     case "times":
     case "mathtype":
-      return '"Times New Roman", Times, Symbol, "MT Extra", serif';
     default:
       return '"Times New Roman", Times, Symbol, "MT Extra", serif';
   }
@@ -485,6 +517,71 @@ function getSingleSelectedMathElement(root: HTMLElement, selection: Selection) {
   return null;
 }
 
+function getSingleVisuallySelectedMathElement(root: HTMLElement, selection: Selection) {
+  const selectionBounds = getSelectionBounds(selection);
+  if (!selectionBounds) return null;
+
+  const selectedMathNodes = getSelectableMathElements(root).filter((node) => {
+    if (!selectionIntersectsNode(selection, node)) return false;
+
+    const rect = node.getBoundingClientRect();
+    return rectContainsSelection(rect, selectionBounds);
+  });
+
+  return selectedMathNodes.length === 1 ? selectedMathNodes[0] : null;
+}
+
+function getSelectableMathElements(root: HTMLElement) {
+  return [
+    ...Array.from(root.querySelectorAll<HTMLElement>(".katex-display")),
+    ...Array.from(root.querySelectorAll<HTMLElement>(".katex"))
+      .filter((node) => !node.closest(".katex-display")),
+  ];
+}
+
+function getSelectionBounds(selection: Selection) {
+  const rects: DOMRect[] = [];
+
+  for (let index = 0; index < selection.rangeCount; index += 1) {
+    rects.push(...Array.from(selection.getRangeAt(index).getClientRects()));
+  }
+
+  const visibleRects = rects.filter((rect) => rect.width > 0 && rect.height > 0);
+  if (!visibleRects.length) return null;
+
+  const left = Math.min(...visibleRects.map((rect) => rect.left));
+  const top = Math.min(...visibleRects.map((rect) => rect.top));
+  const right = Math.max(...visibleRects.map((rect) => rect.right));
+  const bottom = Math.max(...visibleRects.map((rect) => rect.bottom));
+
+  return { left, top, right, bottom };
+}
+
+function selectionIntersectsNode(selection: Selection, node: Node) {
+  for (let index = 0; index < selection.rangeCount; index += 1) {
+    try {
+      if (selection.getRangeAt(index).intersectsNode(node)) {
+        return true;
+      }
+    } catch {
+      // Some detached or browser-normalized nodes cannot be checked reliably.
+    }
+  }
+
+  return false;
+}
+
+function rectContainsSelection(container: DOMRect, selectionBounds: RectBounds) {
+  const tolerance = 8;
+
+  return (
+    selectionBounds.left >= container.left - tolerance &&
+    selectionBounds.right <= container.right + tolerance &&
+    selectionBounds.top >= container.top - tolerance &&
+    selectionBounds.bottom <= container.bottom + tolerance
+  );
+}
+
 function getClosestSelectedMathElement(root: HTMLElement, node: Node | null) {
   const element = getNodeElement(node);
   if (!element || !root.contains(element)) return null;
@@ -526,14 +623,9 @@ function getKatexLatex(node: Element) {
     ?.trim() ?? "";
 }
 
-function getMathPlainText(node: Element) {
+function getLatexMathPlainText(node: Element) {
   const innerMath = node.querySelector(".katex");
   const latex = getKatexLatex(node) || (innerMath ? getKatexLatex(innerMath) : "");
-  const mathml = getSerializedMathml(node);
-
-  if (mathml) {
-    return mathml;
-  }
 
   if (latex) {
     return node.classList.contains("katex-display") ? `$$\n${latex}\n$$` : `$${latex}$`;
@@ -570,25 +662,6 @@ function getSerializedMathml(node: Element) {
   if (!math) return "";
 
   return new XMLSerializer().serializeToString(math);
-}
-
-function wrapMathTypeClipboardMathml(mathml: string) {
-  return [
-    "<?xml version='1.0'?>",
-    "<!-- MathType@Translator@5@5@MathML2 (Clipboard).tdl@MathML 2.0 (Clipboard)@ -->",
-    "<html>",
-    mathml,
-    "</html>",
-    "<!-- MathType@End@5@5@ -->",
-  ].join("");
-}
-
-function setOptionalClipboardData(clipboardData: DataTransfer, type: string, value: string) {
-  try {
-    clipboardData.setData(type, value);
-  } catch {
-    // Browsers may ignore native or custom clipboard formats from web pages.
-  }
 }
 
 function getPlainText(element: HTMLElement): string {

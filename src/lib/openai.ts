@@ -182,6 +182,12 @@ export function getAIProviderUserMessage(error: unknown) {
   return message || "Không gọi được AI Gateway.";
 }
 
+export function isAIProviderRecoverableError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  return /async request timed out|last status:\s*processing|timeout|524|504|429|502|503|no available processing capacity|service unavailable|capacity/i.test(message);
+}
+
 export function getAIProviderDebug() {
   try {
     const config = getGatewayConfig();

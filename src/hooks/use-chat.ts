@@ -174,8 +174,15 @@ export function useChat(options?: SendMessageOptions) {
           attachments,
         });
       } catch (error) {
-        console.error("Chat error:", error);
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        const recoverable = isRecoverableChatError(errorMessage);
+
+        if (recoverable) {
+          console.warn("Chat provider unavailable:", errorMessage);
+        } else {
+          console.error("Chat error:", error);
+        }
+
         addMessage({
           id: generateId(),
           role: "assistant",
@@ -197,4 +204,8 @@ export function useChat(options?: SendMessageOptions) {
     sendMessage,
     clearMessages,
   };
+}
+
+function isRecoverableChatError(message: string) {
+  return /ai gateway|async request timed out|last status:\s*processing|timeout|524|504|429|502|503|no available processing capacity|service unavailable|capacity/i.test(message);
 }

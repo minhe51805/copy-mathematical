@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { BookOpenCheck, NotebookPen } from "lucide-react";
+import { ClipboardList, FileText, NotebookPen } from "lucide-react";
 import { useChat } from "@/hooks/use-chat";
 import { ExportDialog } from "@/components/word/export-dialog";
 import { buildLocalDocumentCopyResponse, isFullCopyRequest } from "@/lib/attachment-content";
@@ -12,7 +12,6 @@ import type { ChatAttachment } from "@/types";
 import { FileManager, type UploadedFileEntry } from "./file-manager";
 import { MessageList } from "./message-list";
 import { ChatInput } from "./chat-input";
-import { WorkspacePanel } from "./workspace-panel";
 
 interface ExportSource {
   content: string;
@@ -31,6 +30,8 @@ interface ChatContainerProps {
   modeConfig?: AssistantModeConfig;
 }
 
+const MODE_SUGGESTION_ICONS = [NotebookPen, ClipboardList, FileText];
+
 export function ChatContainer({ modeConfig }: ChatContainerProps) {
   const [exportSource, setExportSource] = useState<ExportSource | null>(null);
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
@@ -40,6 +41,7 @@ export function ChatContainer({ modeConfig }: ChatContainerProps) {
   const handleFinish = useCallback(
     ({ assistantMessageId, assistantContent, previousAssistantContent, userMessage, attachments }: ChatFinishResult) => {
       if (!isExportRequest(userMessage)) return;
+      if (isProviderFallbackMessage(assistantContent)) return;
 
       const fullDocumentCopy = isFullCopyRequest(userMessage)
         ? buildLocalDocumentCopyResponse(userMessage, attachments)
@@ -86,19 +88,27 @@ export function ChatContainer({ modeConfig }: ChatContainerProps) {
 
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">
-      {modeConfig && <WorkspacePanel config={modeConfig} />}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <MessageList
           messages={messages}
           isLoading={isLoading}
+          onQuickSend={(content) => {
+            sendMessage(content, pendingAttachments);
+            setPendingAttachments([]);
+          }}
           onExport={handleExport}
           emptyTitle={modeConfig?.workspace.emptyTitle}
           emptySubtitle={modeConfig?.workspace.emptySubtitle}
-          suggestions={modeConfig?.workspace.promptStarters.map((starter) => ({
-            icon: modeConfig.id === "teacher" ? NotebookPen : BookOpenCheck,
+          suggestions={modeConfig?.workspace.promptStarters.map((starter, index) => ({
+            icon: MODE_SUGGESTION_ICONS[index % MODE_SUGGESTION_ICONS.length],
             label: starter.label,
             text: starter.text,
           }))}
+          workspaceTools={modeConfig?.workspace.tools}
+          setupItems={modeConfig?.workspace.setupItems}
+          reviewChecklist={modeConfig?.workspace.reviewChecklist}
+          pendingAttachmentCount={pendingAttachments.length}
+          isTeacherWorkspace={modeConfig?.id === "teacher"}
           enableTestPdfExport={modeConfig?.id === "teacher"}
         />
         <ChatInput
@@ -107,6 +117,7 @@ export function ChatContainer({ modeConfig }: ChatContainerProps) {
           attachments={pendingAttachments}
           onAttachmentsChange={setPendingAttachments}
           placeholder={modeConfig?.workspace.inputPlaceholder}
+          isTeacherWorkspace={modeConfig?.id === "teacher"}
         />
       </div>
       {hasManagedFiles && (
@@ -126,4 +137,16 @@ export function ChatContainer({ modeConfig }: ChatContainerProps) {
       />
     </div>
   );
+}
+
+function isProviderFallbackMessage(content: string) {
+  const normalized = content
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  return normalized.includes("minh chua lay duoc phan hoi tu ai")
+    || normalized.includes("ai gateway dang ket")
+    || normalized.includes("ai gateway xu ly qua lau")
+    || normalized.includes("provider unavailable");
 }

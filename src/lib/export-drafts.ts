@@ -24,7 +24,7 @@ const EXPORT_ONLY_PATTERN =
   /^\s*(hay|giup|cho)?\s*(minh|toi|tui|em|cho toi|cho tui)?\s*(xuat|export|download|tai|tao|lam|in)\s*(file|tep|word|docx|document|tai lieu|ban word|ra file|ra word|noi dung tren|noi dung nay|cau tren|cau nay|bai tren|bai nay|cai tren|cai nay|phan tren|phan nay|doan tren|doan nay)\s*(nhe|di|voi|gium|cho minh|cho tui|a|\.|!|\?)*\s*$/i;
 
 export function isExportRequest(message: string): boolean {
-  const normalizedMessage = normalizeIntentText(message);
+  const normalizedMessage = normalizeIntentText(message).replace(/\bde\s+xuat\b/g, "de-xuat");
   return EXPORT_ONLY_PATTERN.test(normalizedMessage)
     || (
       EXPORT_ACTION_PATTERN.test(normalizedMessage)
@@ -33,7 +33,7 @@ export function isExportRequest(message: string): boolean {
 }
 
 export function isExportOnlyRequest(message: string): boolean {
-  const normalizedMessage = normalizeIntentText(message);
+  const normalizedMessage = normalizeIntentText(message).replace(/\bde\s+xuat\b/g, "de-xuat");
   return EXPORT_ONLY_PATTERN.test(normalizedMessage) || (
     isExportRequest(message)
     && normalizedMessage.trim().split(/\s+/).length <= 8

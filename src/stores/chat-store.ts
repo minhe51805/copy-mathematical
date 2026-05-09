@@ -40,6 +40,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   messages: [],
   conversations: [],
   currentConversationId: null,
+  conversationResetKey: 0,
   isLoading: false,
 
   addMessage: (message: Message) => {
@@ -153,17 +154,31 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     saveToStorage(workspaceId, updated);
     set({ conversations: updated });
     if (get().currentConversationId === id) {
-      set({ messages: [], currentConversationId: null });
+      set((state) => ({
+        messages: [],
+        currentConversationId: null,
+        conversationResetKey: state.conversationResetKey + 1,
+      }));
     }
   },
 
   clearAllConversations: () => {
     localStorage.removeItem(getStorageKey(get().workspaceId));
-    set({ conversations: [], messages: [], currentConversationId: null });
+    set((state) => ({
+      conversations: [],
+      messages: [],
+      currentConversationId: null,
+      conversationResetKey: state.conversationResetKey + 1,
+    }));
   },
 
   createNewConversation: () => {
-    set({ messages: [], currentConversationId: null });
+    set((state) => ({
+      messages: [],
+      currentConversationId: null,
+      isLoading: false,
+      conversationResetKey: state.conversationResetKey + 1,
+    }));
   },
 }));
 

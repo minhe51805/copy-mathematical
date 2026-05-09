@@ -117,8 +117,33 @@ function escapeAttribute(value: string) {
 }
 
 export function isFullCopyRequest(value: string) {
+  const normalized = normalizeIntentText(value);
+  if (isDocumentCreationIntent(normalized)) {
+    return false;
+  }
+
+  if (!/\b(dua\s*ra|lay|trich|chep|copy|paste|dan|sao\s*chep|nguyen\s*van)\b/i.test(normalized)) {
+    return false;
+  }
+
+  if (/\b(dua\s*ra\s*het|lay\s*het|trich\s*het|trich\s*toan\s*bo|copy\s*toan\s*bo|chep\s*toan\s*bo|sao\s*chep\s*toan\s*bo|nguyen\s*van)\b/i.test(normalized)) {
+    return true;
+  }
+
   return /\b(đưa\s*ra\s*hết|dua\s*ra\s*het|toàn\s*bộ|toan\s*bo|full|chép|chep|copy|paste|dán|dan|sao\s*chép|sao\s*chep|trích\s*hết|trich\s*het|trích\s*toàn\s*bộ|trich\s*toan\s*bo|lấy\s*hết|lay\s*het)\b/i
     .test(value);
+}
+
+function normalizeIntentText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/đ/g, "d");
+}
+
+function isDocumentCreationIntent(value: string) {
+  return /\b(soan|giao\s*an|de\s*xuat|tao\s*de|de\s*kiem\s*tra|phieu\s*hoc\s*tap|hoc\s*lieu|bai\s*giang|tom\s*tat|ke\s*hoach|thang\s*diem)\b/i.test(value);
 }
 
 function formatLocalDocumentCopy(

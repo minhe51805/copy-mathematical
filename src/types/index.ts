@@ -1,4 +1,4 @@
-export type WorkspaceId = "general" | "teacher" | "study";
+export type WorkspaceId = "general" | "teacher";
 
 export type ImageAttachment = {
   id: string;
@@ -51,6 +51,7 @@ export interface ChatStore {
   messages: Message[];
   conversations: Conversation[];
   currentConversationId: string | null;
+  conversationResetKey: number;
   isLoading: boolean;
   addMessage: (message: Message) => void;
   updateMessage: (id: string, content: string) => void;

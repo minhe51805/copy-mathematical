@@ -16,23 +16,28 @@ interface ChatShellProps {
   mode?: AssistantModeId;
 }
 
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "math-chat-sidebar-collapsed";
+
 export function ChatShell({ mode }: ChatShellProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const modeConfig = mode ? ASSISTANT_MODES[mode] : undefined;
   const workspaceId: WorkspaceId = mode ?? "general";
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [hashValue, setHashValue] = useState("");
   const conversations = useChatStore((state) => state.conversations);
   const currentConversationId = useChatStore((state) => state.currentConversationId);
+  const conversationResetKey = useChatStore((state) => state.conversationResetKey);
   const loadConversation = useChatStore((state) => state.loadConversation);
 
   useEffect(() => {
     initializeTheme();
     initializeStore(workspaceId);
     const timer = window.setTimeout(() => {
+      setIsSidebarCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true");
       setIsAuthenticated(isMockAuthenticated());
       setHashValue(getWindowHash());
       setIsInitialized(true);
@@ -57,7 +62,8 @@ export function ChatShell({ mode }: ChatShellProps) {
   useEffect(() => {
     if (!isInitialized || !isAuthenticated) return;
 
-    const urlConversationId = getConversationIdFromUrl(searchParams, hashValue);
+    const liveHashValue = getWindowHash();
+    const urlConversationId = getConversationIdFromUrl(searchParams, liveHashValue);
     if (!urlConversationId || currentConversationId === urlConversationId) return;
 
     const conversationExists = conversations.some((conversation) => conversation.id === urlConversationId);
@@ -89,6 +95,11 @@ export function ChatShell({ mode }: ChatShellProps) {
     router.replace("/login");
   };
 
+  const handleSidebarCollapsedChange = (collapsed: boolean) => {
+    setIsSidebarCollapsed(collapsed);
+    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(collapsed));
+  };
+
   if (!isInitialized || !isAuthenticated) {
     return (
       <div className="flex h-dvh items-center justify-center bg-background">
@@ -101,8 +112,16 @@ export function ChatShell({ mode }: ChatShellProps) {
 
   return (
     <div className="flex h-dvh overflow-hidden bg-background text-foreground">
-      <aside className="hidden w-[272px] shrink-0 border-r border-white/10 bg-[hsl(var(--sidebar-bg))] text-[#FAF9F5] md:block">
-        <Sidebar workspaceId={workspaceId} />
+      <aside
+        className={`hidden shrink-0 overflow-hidden border-r border-white/10 bg-[hsl(var(--sidebar-bg))] text-[#FAF9F5] transition-[width] duration-200 ease-out md:block ${
+          isSidebarCollapsed ? "w-[74px]" : "w-[272px]"
+        }`}
+      >
+        <Sidebar
+          workspaceId={workspaceId}
+          isCollapsed={isSidebarCollapsed}
+          onCollapsedChange={handleSidebarCollapsedChange}
+        />
       </aside>
 
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
@@ -121,7 +140,10 @@ export function ChatShell({ mode }: ChatShellProps) {
           subtitle={modeConfig?.workspace.subtitle}
           badge={modeConfig?.badge ?? process.env.NEXT_PUBLIC_MODEL_NAME ?? "AI"}
         />
-        <ChatContainer modeConfig={modeConfig} />
+        <ChatContainer
+          key={`${workspaceId}:${currentConversationId ?? "new"}:${conversationResetKey}`}
+          modeConfig={modeConfig}
+        />
       </main>
     </div>
   );

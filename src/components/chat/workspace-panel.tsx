@@ -1,12 +1,10 @@
 "use client";
 
 import {
-  BookOpenCheck,
   CheckCircle2,
   FileSearch,
   GraduationCap,
   NotebookPen,
-  Paperclip,
   Sigma,
   Wand2,
 } from "lucide-react";
@@ -16,17 +14,15 @@ interface WorkspacePanelProps {
   config: AssistantModeConfig;
 }
 
-const TOOL_ICONS = [NotebookPen, BookOpenCheck, Wand2, FileSearch, GraduationCap];
+const TOOL_ICONS = [NotebookPen, CheckCircle2, Wand2, FileSearch, GraduationCap];
 
 export function WorkspacePanel({ config }: WorkspacePanelProps) {
-  const isTeacher = config.id === "teacher";
-
   return (
     <aside className="hidden w-[300px] shrink-0 border-r bg-background xl:flex xl:flex-col 2xl:w-[320px]">
       <div className="border-b bg-card/80 px-5 py-5">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[hsl(var(--terracotta))] text-white shadow-[rgba(217,119,87,0.16)_0px_8px_28px]">
-            {isTeacher ? <NotebookPen className="h-5 w-5" /> : <BookOpenCheck className="h-5 w-5" />}
+            <NotebookPen className="h-5 w-5" />
           </div>
           <div className="min-w-0">
             <p className="text-base font-semibold">{config.workspace.name}</p>
@@ -89,17 +85,11 @@ export function WorkspacePanel({ config }: WorkspacePanelProps) {
 
         <section className="mt-5 rounded-xl border border-border/15 bg-card p-4 shadow-[var(--shadow-sm)]">
           <div className="flex items-center gap-2">
-            {isTeacher ? (
-              <CheckCircle2 className="h-4 w-4 text-[hsl(var(--terracotta))]" />
-            ) : (
-              <Paperclip className="h-4 w-4 text-[hsl(var(--terracotta))]" />
-            )}
-            <h2 className="text-sm font-semibold">{isTeacher ? "Trước khi dùng" : "Mẹo cho bài tập"}</h2>
+            <CheckCircle2 className="h-4 w-4 text-[hsl(var(--terracotta))]" />
+            <h2 className="text-sm font-semibold">Trước khi dùng</h2>
           </div>
           <p className="mt-3 text-xs leading-5 text-muted-foreground">
-            {isTeacher
-              ? "Gửi thêm file đề cũ, yêu cầu của trường hoặc ảnh bài mẫu để AI soạn sát lớp hơn."
-              : "Bạn có thể kéo ảnh, PDF, Word hoặc Excel vào khung chat. AI sẽ đọc file rồi giải thích lại theo từng bước."}
+            Gửi thêm file đề cũ, yêu cầu của trường hoặc ảnh bài mẫu để AI soạn sát lớp hơn.
           </p>
         </section>
       </div>

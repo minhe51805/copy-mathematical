@@ -4,6 +4,7 @@ import {
   getAIProviderSetupError,
   getAIProviderUserMessage,
   getOpenAIConfigForLog,
+  isAIProviderRecoverableError,
   type AIChatMessage,
   type AIContentPart,
 } from "@/lib/openai";
@@ -45,7 +46,8 @@ interface ChatRequestBody {
 
 const MAX_GATEWAY_HISTORY_MESSAGES = 8;
 const MAX_GATEWAY_MESSAGE_CHARS = 6_000;
-const MAX_GATEWAY_ATTACHMENT_TEXT_CHARS = 60_000;
+const MAX_GATEWAY_ATTACHMENT_TEXT_CHARS = 24_000;
+const MAX_TEACHER_ATTACHMENT_TEXT_CHARS = 14_000;
 const MAX_GATEWAY_IMAGE_ATTACHMENTS = 3;
 const LARGE_GENERATION_THRESHOLD = 80;
 
@@ -70,30 +72,43 @@ export async function POST(req: NextRequest) {
 
     const responseText = await createGatewayText(chatMessages, mode);
 
-    const encoder = new TextEncoder();
-
-    const readableStream = new ReadableStream({
-      start(controller) {
-        controller.enqueue(encoder.encode(responseText));
-        controller.close();
-      },
-    });
-
-    return new Response(readableStream, {
-      headers: {
-        "Content-Type": "text/plain",
-        "Transfer-Encoding": "chunked",
-        ...corsHeaders,
-      },
-    });
+    return createTextStreamResponse(responseText, corsHeaders);
   } catch (error) {
-    console.error("Chat API error:", error);
     const errorMessage = getAIProviderUserMessage(error);
+
+    if (isAIProviderRecoverableError(error)) {
+      console.warn("Chat provider unavailable:", errorMessage);
+      return createTextStreamResponse(
+        `Minh chua lay duoc phan hoi tu AI.\n\n${errorMessage}`,
+        corsHeaders
+      );
+    }
+
+    console.error("Chat API error:", error);
     return NextResponse.json(
       { error: errorMessage },
       { status: 503, headers: corsHeaders }
     );
   }
+}
+
+function createTextStreamResponse(text: string, corsHeaders: HeadersInit) {
+  const encoder = new TextEncoder();
+
+  const readableStream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(text));
+      controller.close();
+    },
+  });
+
+  return new Response(readableStream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Transfer-Encoding": "chunked",
+      ...corsHeaders,
+    },
+  });
 }
 
 async function createGatewayText(messages: IncomingMessage[], mode?: AssistantModeId) {
@@ -158,7 +173,7 @@ function prepareGatewayMessages(messages: IncomingMessage[], mode?: AssistantMod
           "Nội dung tin nhắn đã được rút gọn để request chạy ổn định hơn."
         ),
       attachments: isLatestUserMessage
-        ? limitGatewayAttachments(message.attachments)
+        ? limitGatewayAttachments(message.attachments, mode)
         : undefined,
     };
   });
@@ -185,7 +200,7 @@ function findPreviousUserRequest(messages: IncomingMessage[], beforeIndex: numbe
   return "";
 }
 
-function limitGatewayAttachments(attachments: IncomingAttachment[] | undefined) {
+function limitGatewayAttachments(attachments: IncomingAttachment[] | undefined, mode?: AssistantModeId) {
   if (!attachments?.length) {
     return undefined;
   }
@@ -196,9 +211,12 @@ function limitGatewayAttachments(attachments: IncomingAttachment[] | undefined) 
   const images = attachments
     .filter((attachment) => isValidImageDataUrl(attachment.dataUrl))
     .slice(0, MAX_GATEWAY_IMAGE_ATTACHMENTS);
-  const perDocumentBudget = documents.length
-    ? Math.max(6_000, Math.floor(MAX_GATEWAY_ATTACHMENT_TEXT_CHARS / documents.length))
+  const totalBudget = mode === "teacher"
+    ? MAX_TEACHER_ATTACHMENT_TEXT_CHARS
     : MAX_GATEWAY_ATTACHMENT_TEXT_CHARS;
+  const perDocumentBudget = documents.length
+    ? Math.max(4_000, Math.floor(totalBudget / documents.length))
+    : totalBudget;
 
   return [
     ...documents.map((attachment) => {
