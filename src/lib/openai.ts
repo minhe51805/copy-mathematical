@@ -33,6 +33,8 @@ interface GatewayEndpoint {
   path: string;
 }
 
+type AIProvider = "ai-gateway" | "gemini-aistudio";
+
 interface GeminiContent {
   role: "user" | "model";
   parts: GeminiPart[];
@@ -98,9 +100,21 @@ class AIGatewayError extends Error {
 }
 
 const DEFAULT_GATEWAY_MODEL = "gemini-3-flash-preview";
+const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com";
 const DEFAULT_SYNC_GATEWAY_TIMEOUT_MS = 35_000;
-const DEFAULT_ASYNC_GATEWAY_TIMEOUT_MS = 90_000;
+const DEFAULT_ASYNC_GATEWAY_TIMEOUT_MS = 45_000;
 const ASYNC_POLL_INTERVAL_MS = 1_400;
+
+function getAIProvider(): AIProvider {
+  const rawProvider = process.env.AI_PROVIDER?.trim().toLowerCase();
+
+  if (rawProvider === "gemini" || rawProvider === "gemini-aistudio" || rawProvider === "aistudio") {
+    return "gemini-aistudio";
+  }
+
+  return "ai-gateway";
+}
 
 function getRawGatewayUrl() {
   return process.env.AI_GATEWAY_PRIMARY_URL?.trim() ?? "";
@@ -108,6 +122,10 @@ function getRawGatewayUrl() {
 
 function getRawGatewayKey() {
   return process.env.AI_GATEWAY_PRIMARY_KEY?.trim() ?? "";
+}
+
+function getRawGeminiKey() {
+  return process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim() || "";
 }
 
 function getGatewayConfig(): GatewayConfig {
@@ -147,7 +165,14 @@ function normalizeGatewayURL(value: string) {
 
 export function getAIProviderSetupError() {
   try {
-    getGatewayConfig();
+    if (getAIProvider() === "gemini-aistudio") {
+      if (!getRawGeminiKey()) {
+        throw new Error("Missing GEMINI_API_KEY in backend env.");
+      }
+    } else {
+      getGatewayConfig();
+    }
+
     return null;
   } catch (error) {
     return error instanceof Error ? error.message : String(error);
@@ -156,27 +181,32 @@ export function getAIProviderSetupError() {
 
 export function getAIProviderUserMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
+  const providerLabel = getAIProvider() === "gemini-aistudio" ? "Gemini AI Studio" : "AI Gateway";
   const hasProcessingTimeout = /async request timed out|last status:\s*processing|timeout|524|504/i.test(message);
   const hasCapacityError = /no available processing capacity|service unavailable|capacity| 503[:\s]/i.test(message);
 
   if (hasProcessingTimeout && hasCapacityError) {
-    return "AI Gateway dang ket: Vertex xu ly qua lau, con Gemini dang het capacity. App da rut gon request de lan gui sau nhe hon; ban thu lai sau it phut, hoac chia file/yeu cau thanh tung phan nho.";
+    return `${providerLabel} đang kẹt: provider xử lý quá lâu hoặc đang hết capacity. Đây là lỗi phía provider/model, không phải do ảnh hoặc prompt. Bạn thử gửi lại sau ít phút, hoặc cắt ảnh/file thành phần nhỏ hơn để request nhẹ hơn.`;
   }
 
   if (hasProcessingTimeout) {
-    return "AI Gateway xu ly qua lau nen app da tam dung cho. Ban thu gui yeu cau ngan hon, hoac chia tai lieu thanh tung phan nhu 5-10 cau mot lan de AI tra loi on dinh hon.";
+    return `${providerLabel} xử lý quá lâu nên app đã tạm dừng chờ. Bạn thử gửi yêu cầu ngắn hơn, cắt ảnh rõ phần bài cần đọc, hoặc chia tài liệu thành từng phần nhỏ để AI trả lời ổn định hơn.`;
   }
 
   if (/no available processing capacity|service unavailable|capacity| 503[:\s]/i.test(message)) {
-    return "AI Gateway đang quá tải hoặc chưa có provider rảnh. Bạn thử lại sau ít phút nhé. Nếu đang gửi file lớn, hãy chia nhỏ yêu cầu trước khi gửi lại.";
+    return `${providerLabel} đang quá tải hoặc chưa có provider rảnh. Bạn thử lại sau ít phút nhé. Nếu đang gửi file lớn, hãy chia nhỏ yêu cầu trước khi gửi lại.`;
   }
 
   if (/async request timed out|last status:\s*processing|timeout|524|504/i.test(message)) {
-    return "AI Gateway xử lý quá lâu nên app đã tạm dừng chờ. Bạn thử gửi yêu cầu ngắn hơn, hoặc chia tài liệu thành từng phần như 5-10 câu một lần để AI trả lời ổn định hơn.";
+    return `${providerLabel} xử lý quá lâu nên app đã tạm dừng chờ. Bạn thử gửi yêu cầu ngắn hơn, hoặc chia tài liệu thành từng phần như 5-10 câu một lần để AI trả lời ổn định hơn.`;
   }
 
   if (/missing ai_gateway_primary_url|missing ai_gateway_primary_key/i.test(message)) {
     return "Backend chưa có AI_GATEWAY_PRIMARY_URL hoặc AI_GATEWAY_PRIMARY_KEY. Hãy kiểm tra lại biến môi trường rồi khởi động lại server.";
+  }
+
+  if (/missing gemini_api_key|missing google_generative_ai_api_key/i.test(message)) {
+    return "Backend chưa có GEMINI_API_KEY cho Gemini AI Studio. Hãy vào trang Admin để nhập key, hoặc thêm GEMINI_API_KEY vào .env.local rồi khởi động lại server.";
   }
 
   return message || "Không gọi được AI Gateway.";
@@ -189,6 +219,16 @@ export function isAIProviderRecoverableError(error: unknown) {
 }
 
 export function getAIProviderDebug() {
+  if (getAIProvider() === "gemini-aistudio") {
+    return {
+      provider: "gemini-aistudio" as const,
+      baseUrlHost: getUrlHost(GEMINI_API_BASE_URL),
+      hasGatewayUrl: true,
+      hasGatewayKey: Boolean(getRawGeminiKey()),
+      generatePath: `/v1beta/models/${normalizeGeminiModelName(getAIModel())}:generateContent`,
+    };
+  }
+
   try {
     const config = getGatewayConfig();
     return {
@@ -212,6 +252,22 @@ export function getAIProviderDebug() {
 }
 
 export function getAIModel(purpose: AIModelPurpose = "chat") {
+  if (getAIProvider() === "gemini-aistudio") {
+    const purposeModel =
+      purpose === "chat"
+        ? process.env.GEMINI_CHAT_MODEL?.trim()
+        : purpose === "export"
+          ? process.env.GEMINI_EXPORT_MODEL?.trim()
+          : process.env.GEMINI_FORMULA_MODEL?.trim() || process.env.FORMULA_RECOGNITION_MODEL?.trim();
+
+    return (
+      purposeModel ||
+      process.env.GEMINI_MODEL?.trim() ||
+      process.env.AI_GATEWAY_MODEL?.trim() ||
+      DEFAULT_GEMINI_MODEL
+    );
+  }
+
   const purposeModel =
     purpose === "chat"
       ? process.env.AI_GATEWAY_CHAT_MODEL?.trim()
@@ -232,6 +288,14 @@ export function getAIProviderLabel() {
 }
 
 export function getOpenAIConfigForLog() {
+  if (getAIProvider() === "gemini-aistudio") {
+    return {
+      provider: "gemini-aistudio",
+      baseURL: GEMINI_API_BASE_URL,
+      generatePath: `/v1beta/models/${normalizeGeminiModelName(getAIModel())}:generateContent`,
+    };
+  }
+
   const config = getGatewayConfig();
   const endpoint = getGatewayEndpoints(config)[0];
 
@@ -245,6 +309,10 @@ export function getOpenAIConfigForLog() {
 }
 
 export async function generateAIText(options: GenerateTextOptions) {
+  if (getAIProvider() === "gemini-aistudio") {
+    return generateGeminiAIStudioText(options);
+  }
+
   const config = getGatewayConfig();
   const model = options.model ?? getAIModel(options.purpose ?? "chat");
   const body = createGatewayBody({
@@ -273,6 +341,40 @@ export async function generateAIText(options: GenerateTextOptions) {
   }
 
   throw combineGatewayErrors(errors);
+}
+
+async function generateGeminiAIStudioText(options: GenerateTextOptions) {
+  const apiKey = getRawGeminiKey();
+  const model = normalizeGeminiModelName(options.model ?? getAIModel(options.purpose ?? "chat"));
+
+  if (!apiKey) {
+    throw new Error("Missing GEMINI_API_KEY in backend env.");
+  }
+
+  const body = createGeminiAIStudioBody({
+    ...options,
+    model,
+  });
+  const url = `${GEMINI_API_BASE_URL}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const response = await fetchWithTimeout(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  }, getSyncGatewayTimeoutMs());
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`Gemini AI Studio returned ${response.status}: ${truncate(stripHtml(responseText), 360)}`);
+  }
+
+  return extractGatewayText(parseGatewayResponse(responseText));
+}
+
+function createGeminiAIStudioBody(options: Required<Pick<GenerateTextOptions, "model">> & GenerateTextOptions) {
+  const gatewayBody = createGatewayBody(options);
+  return gatewayBody.providerPayload;
 }
 
 function createGatewayBody(options: Required<Pick<GenerateTextOptions, "model">> & GenerateTextOptions): GatewayGenerateBody {
@@ -660,6 +762,10 @@ function truncate(value: string, maxLength: number) {
   return normalized.length > maxLength
     ? `${normalized.slice(0, maxLength)}...`
     : normalized;
+}
+
+function normalizeGeminiModelName(model: string) {
+  return model.replace(/^models\//, "").trim() || DEFAULT_GEMINI_MODEL;
 }
 
 function getUrlHost(value: string) {

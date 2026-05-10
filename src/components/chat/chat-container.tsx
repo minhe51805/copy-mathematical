@@ -1,11 +1,22 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { ClipboardList, FileText, NotebookPen } from "lucide-react";
+import Link from "next/link";
+import { ClipboardList, FileText, LogIn, NotebookPen, Sparkles } from "lucide-react";
 import { useChat } from "@/hooks/use-chat";
 import { ExportDialog } from "@/components/word/export-dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { buildLocalDocumentCopyResponse, isFullCopyRequest } from "@/lib/attachment-content";
 import { isExportOnlyRequest, isExportRequest } from "@/lib/export-drafts";
+import { setPendingGuestPrompt } from "@/lib/guest-access";
 import { useChatStore } from "@/stores/chat-store";
 import type { AssistantModeConfig } from "@/lib/assistant-modes";
 import type { ChatAttachment } from "@/types";
@@ -32,9 +43,16 @@ interface ChatContainerProps {
 
 const MODE_SUGGESTION_ICONS = [NotebookPen, ClipboardList, FileText];
 
+interface GuestLimitState {
+  limit: number;
+  used: number;
+  hasAttachments: boolean;
+}
+
 export function ChatContainer({ modeConfig }: ChatContainerProps) {
   const [exportSource, setExportSource] = useState<ExportSource | null>(null);
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
+  const [guestLimitState, setGuestLimitState] = useState<GuestLimitState | null>(null);
   const removeAttachment = useChatStore((state) => state.removeAttachment);
   const setMessageExportSource = useChatStore((state) => state.setMessageExportSource);
 
@@ -63,9 +81,20 @@ export function ChatContainer({ modeConfig }: ChatContainerProps) {
     [setMessageExportSource]
   );
 
+  const handleGuestLimitReached = useCallback(
+    ({ limit, used, content, hasAttachments }: GuestLimitState & { content: string }) => {
+      if (content.trim()) {
+        setPendingGuestPrompt(content);
+      }
+      setGuestLimitState({ limit, used, hasAttachments });
+    },
+    []
+  );
+
   const { messages, isLoading, sendMessage } = useChat({
     mode: modeConfig?.id,
     onFinish: handleFinish,
+    onGuestLimitReached: handleGuestLimitReached,
   });
 
   const uploadedFiles = useMemo<UploadedFileEntry[]>(
@@ -82,9 +111,9 @@ export function ChatContainer({ modeConfig }: ChatContainerProps) {
   );
   const hasManagedFiles = pendingAttachments.length > 0 || uploadedFiles.length > 0;
 
-  const handleExport = (content: string, request?: string | null) => {
+  const handleExport = useCallback((content: string, request?: string | null) => {
     setExportSource({ content, request });
-  };
+  }, []);
 
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -93,8 +122,11 @@ export function ChatContainer({ modeConfig }: ChatContainerProps) {
           messages={messages}
           isLoading={isLoading}
           onQuickSend={(content) => {
-            sendMessage(content, pendingAttachments);
-            setPendingAttachments([]);
+            void sendMessage(content, pendingAttachments).then((sent) => {
+              if (sent !== false) {
+                setPendingAttachments([]);
+              }
+            });
           }}
           onExport={handleExport}
           emptyTitle={modeConfig?.workspace.emptyTitle}
@@ -135,7 +167,61 @@ export function ChatContainer({ modeConfig }: ChatContainerProps) {
         request={exportSource?.request}
         onClose={() => setExportSource(null)}
       />
+      <GuestLoginDialog
+        open={!!guestLimitState}
+        limit={guestLimitState?.limit ?? 3}
+        hasAttachments={guestLimitState?.hasAttachments ?? false}
+        onOpenChange={(open) => !open && setGuestLimitState(null)}
+      />
     </div>
+  );
+}
+
+function GuestLoginDialog({
+  open,
+  limit,
+  hasAttachments,
+  onOpenChange,
+}: {
+  open: boolean;
+  limit: number;
+  hasAttachments: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[440px] border-border/15 bg-card p-0 text-foreground shadow-[var(--shadow-md)]">
+        <DialogHeader className="px-6 pb-2 pt-6 text-left">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[hsl(var(--terracotta))]/15 text-[hsl(var(--terracotta))]">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <DialogTitle className="text-2xl font-semibold">
+            Đăng nhập để tiếp tục
+          </DialogTitle>
+          <DialogDescription className="text-[15px] leading-6">
+            Bạn đã dùng hết {limit} lượt chat miễn phí. Đăng nhập để tiếp tục gửi câu hỏi, dùng file và lưu lại lịch sử làm việc.
+          </DialogDescription>
+        </DialogHeader>
+
+        {hasAttachments && (
+          <div className="mx-6 rounded-xl border border-[hsl(var(--terracotta))]/30 bg-[hsl(var(--terracotta))]/10 px-4 py-3 text-sm leading-6 text-foreground">
+            File đang chọn vẫn ở khung nhập hiện tại. Nếu chuyển sang trang đăng nhập, hãy tải lại file sau khi quay về chat.
+          </div>
+        )}
+
+        <DialogFooter className="gap-3 px-6 pb-6 pt-4 sm:justify-between sm:space-x-0">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Để sau
+          </Button>
+          <Button asChild>
+            <Link href="/login?next=/newchat">
+              <LogIn className="h-4 w-4" />
+              Đăng nhập
+            </Link>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

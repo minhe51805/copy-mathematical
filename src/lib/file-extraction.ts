@@ -11,7 +11,7 @@ export const ACCEPTED_ATTACHMENT_TYPES = [
 ].join(",");
 
 export const MAX_ATTACHMENTS = 8;
-export const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+export const MAX_IMAGE_SIZE = 12 * 1024 * 1024;
 export const MAX_DOCUMENT_SIZE = 20 * 1024 * 1024;
 export const MAX_DOCUMENT_TEXT_CHARS = 240_000;
 
@@ -150,6 +150,8 @@ async function extractPdfText(file: File): Promise<ExtractionResult> {
 
   try {
     const pages: string[] = [];
+    let accumulatedLength = 0;
+    let stoppedAtTextLimit = false;
 
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       const page = await pdf.getPage(pageNumber);
@@ -165,12 +167,21 @@ async function extractPdfText(file: File): Promise<ExtractionResult> {
         .trim();
 
       if (pageText) {
-        pages.push(`--- Trang ${pageNumber} ---\n${pageText}`);
+        const pageBlock = `--- Trang ${pageNumber} ---\n${pageText}`;
+        pages.push(pageBlock);
+        accumulatedLength += pageBlock.length + 2;
+
+        if (accumulatedLength >= MAX_DOCUMENT_TEXT_CHARS) {
+          stoppedAtTextLimit = pageNumber < pdf.numPages;
+          break;
+        }
       }
     }
+    const limitedText = limitExtractedText(pages.join("\n\n"));
 
     return {
-      ...limitExtractedText(pages.join("\n\n")),
+      ...limitedText,
+      truncated: limitedText.truncated || stoppedAtTextLimit,
       pageCount: pdf.numPages,
     };
   } finally {

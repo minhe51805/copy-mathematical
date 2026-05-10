@@ -261,11 +261,14 @@ function createClipboardHtml(element: HTMLElement): string {
 
 function createMathTypeClipboardHtml(element: HTMLElement): string {
   const clone = element.cloneNode(true) as HTMLElement;
+  const holder = document.createElement("div");
+  holder.append(clone);
+
   inlineKatexStyles(element, clone);
-  trimUiOnlyAttributes(clone);
-  preserveSoftLineBreaks(clone);
-  replaceKatexWithMathmlForWord(clone);
-  prepareKatexForVisualClipboard(clone);
+  trimUiOnlyAttributes(holder);
+  preserveSoftLineBreaks(holder);
+  replaceKatexWithMathmlForWord(holder);
+  prepareKatexForVisualClipboard(holder);
 
   return [
     "<!doctype html>",
@@ -276,7 +279,7 @@ function createMathTypeClipboardHtml(element: HTMLElement): string {
     `<style>${CLIPBOARD_CSS}</style>`,
     "</head>",
     "<body>",
-    `<div class="math-chat-copy">${clone.innerHTML}</div>`,
+    `<div class="math-chat-copy">${holder.innerHTML}</div>`,
     "</body>",
     "</html>",
   ].join("");
@@ -309,7 +312,10 @@ function prepareKatexForVisualClipboard(root: HTMLElement) {
 }
 
 function replaceKatexWithMathmlForWord(root: HTMLElement) {
-  const displayNodes = Array.from(root.querySelectorAll<HTMLElement>(".katex-display"));
+  const displayNodes = [
+    ...(root.matches(".katex-display") ? [root] : []),
+    ...Array.from(root.querySelectorAll<HTMLElement>(".katex-display")),
+  ];
 
   displayNodes.forEach((node) => {
     if (!root.contains(node)) return;
@@ -326,7 +332,10 @@ function replaceKatexWithMathmlForWord(root: HTMLElement) {
     node.replaceWith(wrapper);
   });
 
-  const inlineNodes = Array.from(root.querySelectorAll<HTMLElement>(".katex"))
+  const inlineNodes = [
+    ...(root.matches(".katex") ? [root] : []),
+    ...Array.from(root.querySelectorAll<HTMLElement>(".katex")),
+  ]
     .filter((node) => root.contains(node) && !node.closest(".katex-display"));
 
   inlineNodes.forEach((node) => {
@@ -636,14 +645,21 @@ function getLatexMathPlainText(node: Element) {
 }
 
 function getSingleMathmlCopyText(root: HTMLElement) {
-  const displayMathNodes = Array.from(root.querySelectorAll<HTMLElement>(".katex-display"));
-  const inlineMathNodes = Array.from(root.querySelectorAll<HTMLElement>(".katex"))
+  const displayMathNodes = [
+    ...(root.matches(".katex-display") ? [root] : []),
+    ...Array.from(root.querySelectorAll<HTMLElement>(".katex-display")),
+  ];
+  const inlineMathNodes = [
+    ...(root.matches(".katex") ? [root] : []),
+    ...Array.from(root.querySelectorAll<HTMLElement>(".katex")),
+  ]
     .filter((node) => !node.closest(".katex-display"));
   const mathNodes = [...displayMathNodes, ...inlineMathNodes];
 
   if (mathNodes.length !== 1) return "";
 
-  const textClone = root.cloneNode(true) as HTMLElement;
+  const textClone = document.createElement("div");
+  textClone.append(root.cloneNode(true));
   textClone.querySelectorAll("[data-copy-ui], .katex-display, .katex").forEach((node) => {
     node.remove();
   });

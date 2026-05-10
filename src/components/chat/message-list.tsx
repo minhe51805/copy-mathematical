@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   BookOpenCheck,
@@ -112,6 +112,35 @@ export function MessageList({
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const testPaperContentByMessageId = useMemo(() => {
+    if (!enableTestPdfExport) {
+      return new Map<string, string>();
+    }
+
+    const contentByMessageId = new Map<string, string>();
+    let currentTestChunks: string[] = [];
+
+    for (const message of messages) {
+      if (message.role === "user" && !isContinuationMessage(message.content)) {
+        currentTestChunks = [];
+        continue;
+      }
+
+      if (message.role !== "assistant" || !hasTestPaperContent(message.content)) {
+        continue;
+      }
+
+      const chunk = message.content.trim();
+      if (!chunk) {
+        continue;
+      }
+
+      currentTestChunks.push(chunk);
+      contentByMessageId.set(message.id, currentTestChunks.join("\n\n---\n\n"));
+    }
+
+    return contentByMessageId;
+  }, [enableTestPdfExport, messages]);
 
   useEffect(() => {
     if (isAtBottom) {
@@ -178,7 +207,7 @@ export function MessageList({
               <Message
                 message={message}
                 onExport={onExport}
-                testPaperContent={enableTestPdfExport ? getTestPaperContentForMessage(messages, message.id) : undefined}
+                testPaperContent={testPaperContentByMessageId.get(message.id)}
               />
             </div>
           ))}
@@ -742,39 +771,6 @@ function openFormulaStudio() {
 
 function openFilePicker() {
   window.dispatchEvent(new CustomEvent("open-file-picker"));
-}
-
-function getTestPaperContentForMessage(messages: MessageType[], messageId: string) {
-  const currentIndex = messages.findIndex((message) => message.id === messageId);
-  const currentMessage = messages[currentIndex];
-
-  if (!currentMessage || currentMessage.role !== "assistant") {
-    return undefined;
-  }
-
-  const startIndex = findCurrentTestSequenceStart(messages, currentIndex);
-  const assistantTestChunks = messages
-    .slice(startIndex, currentIndex + 1)
-    .filter((message) => message.role === "assistant" && hasTestPaperContent(message.content))
-    .map((message) => message.content.trim())
-    .filter(Boolean);
-
-  if (!assistantTestChunks.length || !hasTestPaperContent(currentMessage.content)) {
-    return undefined;
-  }
-
-  return assistantTestChunks.join("\n\n---\n\n");
-}
-
-function findCurrentTestSequenceStart(messages: MessageType[], currentIndex: number) {
-  for (let index = currentIndex - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message?.role === "user" && !isContinuationMessage(message.content)) {
-      return index;
-    }
-  }
-
-  return 0;
 }
 
 function isContinuationMessage(content: string) {

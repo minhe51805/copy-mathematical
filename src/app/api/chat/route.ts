@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     if (isAIProviderRecoverableError(error)) {
       console.warn("Chat provider unavailable:", errorMessage);
       return createTextStreamResponse(
-        `Minh chua lay duoc phan hoi tu AI.\n\n${errorMessage}`,
+        `Mình chưa lấy được phản hồi từ AI.\n\n${errorMessage}`,
         corsHeaders
       );
     }
@@ -113,7 +113,7 @@ function createTextStreamResponse(text: string, corsHeaders: HeadersInit) {
 
 async function createGatewayText(messages: IncomingMessage[], mode?: AssistantModeId) {
   const modeConfig = mode ? ASSISTANT_MODES[mode] : undefined;
-  const model = modeConfig?.model.name ?? getAIModel("chat");
+  const model = getAIModel("chat");
   const config = getOpenAIConfigForLog();
   const gatewayMessages = prepareGatewayMessages(messages, mode);
   const latestContent = messages[messages.length - 1]?.content;

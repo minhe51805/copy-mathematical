@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
@@ -126,15 +126,97 @@ function getMarkdownComponents(): Components {
   };
 }
 
+const MARKDOWN_REMARK_PLUGINS = [remarkGfm, remarkMath];
+const MARKDOWN_REHYPE_PLUGINS = [rehypeKatex];
+const MARKDOWN_COMPONENTS = getMarkdownComponents();
+const FORMULA_COPY_STYLES = `
+  .math-renderer-content .math-inline-copy-wrap {
+    position: relative;
+    display: inline-block;
+    vertical-align: baseline;
+    margin-right: 2px;
+    padding-right: 30px;
+  }
+
+  .math-renderer-content .math-formula-copy-button {
+    border: 1px solid hsl(var(--border) / 0.35);
+    border-radius: 8px;
+    background: hsl(var(--card));
+    color: hsl(var(--muted-foreground));
+    box-shadow: var(--shadow-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font: 600 11px/1 Arial, sans-serif;
+    min-height: 24px;
+    padding: 0 8px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 140ms ease, transform 140ms ease, color 140ms ease;
+    z-index: 5;
+  }
+
+  .math-renderer-content .math-inline-copy-wrap > .math-formula-copy-button {
+    position: absolute;
+    right: 2px;
+    top: 50%;
+    transform: translate(4px, -50%);
+    white-space: nowrap;
+  }
+
+  .math-renderer-content .katex-display.math-formula-copy-target {
+    position: relative;
+  }
+
+  .math-renderer-content .katex-display > .math-formula-copy-button {
+    position: absolute;
+    right: 8px;
+    top: 8px;
+    transform: translateY(2px);
+  }
+
+  .math-renderer-content .math-inline-copy-wrap:hover > .math-formula-copy-button,
+  .math-renderer-content .katex-display:hover > .math-formula-copy-button,
+  .math-renderer-content .math-formula-copy-button:hover,
+  .math-renderer-content .math-formula-copy-button:focus-visible {
+    color: hsl(var(--foreground));
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(0, -50%);
+  }
+
+  .math-renderer-content .katex-display:hover > .math-formula-copy-button,
+  .math-renderer-content .katex-display > .math-formula-copy-button:hover,
+  .math-renderer-content .katex-display > .math-formula-copy-button:focus-visible {
+    transform: translateY(0);
+  }
+
+  @media (pointer: coarse) {
+    .math-renderer-content .math-formula-copy-button {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+`;
+
 function MarkdownContent({ content }: { content: string }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    installFormulaCopyButtons(rootRef.current);
+  }, [content]);
+
   return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkMath]}
-      rehypePlugins={[rehypeKatex]}
-      components={getMarkdownComponents()}
-    >
-      {content}
-    </ReactMarkdown>
+    <div ref={rootRef} className="math-renderer-content">
+      <style>{FORMULA_COPY_STYLES}</style>
+      <ReactMarkdown
+        remarkPlugins={MARKDOWN_REMARK_PLUGINS}
+        rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
+        components={MARKDOWN_COMPONENTS}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
   );
 }
 
@@ -256,6 +338,74 @@ function CopyableMarkdownBlock({
       </div>
     </div>
   );
+}
+
+function installFormulaCopyButtons(root: HTMLElement | null) {
+  if (!root) return;
+
+  const displayNodes = Array.from(root.querySelectorAll<HTMLElement>(".katex-display"));
+  const inlineNodes = Array.from(root.querySelectorAll<HTMLElement>(".katex"))
+    .filter((node) => !node.closest(".katex-display"));
+
+  [...displayNodes, ...inlineNodes].forEach((node) => {
+    if (node.dataset.formulaCopyReady === "true") return;
+
+    node.dataset.formulaCopyReady = "true";
+    const isDisplay = node.classList.contains("katex-display");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.copyUi = "true";
+    button.dataset.formulaCopyButton = "true";
+    button.className = "math-formula-copy-button";
+    button.textContent = isDisplay ? "Copy cong thuc" : "Σ";
+    button.title = "Copy rieng cong thuc theo kieu MathType";
+    button.setAttribute("aria-label", "Copy rieng cong thuc theo kieu MathType");
+
+    button.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const previousLabel = button.textContent;
+      button.textContent = "Dang chep";
+
+      try {
+        await copyRenderedContent(node, getFormulaFallbackText(node));
+        button.textContent = "Da chep";
+        window.setTimeout(() => {
+          button.textContent = previousLabel;
+        }, 1200);
+      } catch {
+        button.textContent = "Loi";
+        window.setTimeout(() => {
+          button.textContent = previousLabel;
+        }, 1200);
+      }
+    });
+
+    if (isDisplay) {
+      node.classList.add("math-formula-copy-target");
+      node.append(button);
+      return;
+    }
+
+    const wrapper = document.createElement("span");
+    wrapper.className = "math-inline-copy-wrap";
+    node.replaceWith(wrapper);
+    wrapper.append(node, button);
+  });
+}
+
+function getFormulaFallbackText(node: HTMLElement) {
+  const latex = node
+    .querySelector('annotation[encoding="application/x-tex"]')
+    ?.textContent
+    ?.trim();
+
+  if (!latex) {
+    return node.textContent?.trim() ?? "";
+  }
+
+  return node.classList.contains("katex-display") ? `$$\n${latex}\n$$` : `$${latex}$`;
 }
 
 function splitCopyableQuestionSections(content: string): CopyableSegment[] {

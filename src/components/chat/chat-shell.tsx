@@ -23,6 +23,7 @@ export function ChatShell({ mode }: ChatShellProps) {
   const searchParams = useSearchParams();
   const modeConfig = mode ? ASSISTANT_MODES[mode] : undefined;
   const workspaceId: WorkspaceId = mode ?? "general";
+  const requiresAuth = workspaceId !== "general";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -53,14 +54,14 @@ export function ChatShell({ mode }: ChatShellProps) {
 
   useEffect(() => {
     if (!isInitialized) return;
-    if (!isAuthenticated) {
+    if (requiresAuth && !isAuthenticated) {
       const nextPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       router.replace(`/login?next=${encodeURIComponent(nextPath)}`);
     }
-  }, [isAuthenticated, isInitialized, router]);
+  }, [isAuthenticated, isInitialized, requiresAuth, router]);
 
   useEffect(() => {
-    if (!isInitialized || !isAuthenticated) return;
+    if (!isInitialized || (requiresAuth && !isAuthenticated)) return;
 
     const liveHashValue = getWindowHash();
     const urlConversationId = getConversationIdFromUrl(searchParams, liveHashValue);
@@ -77,18 +78,19 @@ export function ChatShell({ mode }: ChatShellProps) {
     isAuthenticated,
     isInitialized,
     loadConversation,
+    requiresAuth,
     searchParams,
   ]);
 
   useEffect(() => {
-    if (!isInitialized || !isAuthenticated || !currentConversationId) return;
+    if (!isInitialized || (requiresAuth && !isAuthenticated) || !currentConversationId) return;
 
     const targetUrl = `${getWorkspacePath(workspaceId)}?=#${encodeURIComponent(currentConversationId)}`;
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (currentUrl !== targetUrl) {
       router.replace(targetUrl, { scroll: false });
     }
-  }, [currentConversationId, isAuthenticated, isInitialized, router, workspaceId]);
+  }, [currentConversationId, isAuthenticated, isInitialized, requiresAuth, router, workspaceId]);
 
   const handleLogout = () => {
     logoutMockUser();
@@ -100,7 +102,7 @@ export function ChatShell({ mode }: ChatShellProps) {
     localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(collapsed));
   };
 
-  if (!isInitialized || !isAuthenticated) {
+  if (!isInitialized || (requiresAuth && !isAuthenticated)) {
     return (
       <div className="flex h-dvh items-center justify-center bg-background">
         <div className="rounded-xl border border-border/15 bg-card px-5 py-4 text-sm text-muted-foreground shadow-[var(--shadow-sm)]">
@@ -134,8 +136,8 @@ export function ChatShell({ mode }: ChatShellProps) {
         <Header
           onMenuClick={() => setSidebarOpen(true)}
           isSidebarOpen={sidebarOpen}
-          userLabel={MOCK_AUTH_USER.displayName}
-          onLogout={handleLogout}
+          userLabel={isAuthenticated ? MOCK_AUTH_USER.displayName : "Guest"}
+          onLogout={isAuthenticated ? handleLogout : undefined}
           title={modeConfig?.workspace.name}
           subtitle={modeConfig?.workspace.subtitle}
           badge={modeConfig?.badge ?? process.env.NEXT_PUBLIC_MODEL_NAME ?? "AI"}

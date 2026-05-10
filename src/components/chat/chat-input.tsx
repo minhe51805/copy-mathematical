@@ -34,13 +34,14 @@ import {
   isSupportedAttachmentFile,
 } from "@/lib/file-extraction";
 import { generateId } from "@/lib/math-utils";
+import { clearPendingGuestPrompt, getPendingGuestPrompt } from "@/lib/guest-access";
 import { cn } from "@/lib/utils";
 import type { ChatAttachment, DocumentAttachment, ImageAttachment } from "@/types";
 import { FormulaStudio, type FormulaInsertPayload } from "./formula-studio";
 import { MathRenderer } from "./math-renderer";
 
 interface ChatInputProps {
-  onSend: (message: string, attachments?: ChatAttachment[]) => void;
+  onSend: (message: string, attachments?: ChatAttachment[]) => void | boolean | Promise<void | boolean>;
   isLoading: boolean;
   attachments: ChatAttachment[];
   onAttachmentsChange: Dispatch<SetStateAction<ChatAttachment[]>>;
@@ -59,6 +60,10 @@ type TeacherFilePrompt = {
   description: string;
   prompt: string;
 };
+
+const AI_IMAGE_MAX_EDGE = 1600;
+const AI_IMAGE_QUALITY = 0.88;
+const AI_IMAGE_MIME_TYPE = "image/jpeg";
 
 export function ChatInput({
   onSend,
@@ -88,6 +93,21 @@ export function ChatInput({
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
     }
   }, [input]);
+
+  useEffect(() => {
+    const pendingPrompt = getPendingGuestPrompt();
+    if (!pendingPrompt) return;
+
+    const timer = window.setTimeout(() => {
+      const promptToSend = getPendingGuestPrompt();
+      if (!promptToSend) return;
+
+      clearPendingGuestPrompt();
+      onSend(promptToSend, []);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [onSend]);
 
   useEffect(() => {
     const handleSuggestion = (event: Event) => {
@@ -152,14 +172,14 @@ export function ChatInput({
             continue;
           }
 
-          const dataUrl = await readFileAsDataUrl(file);
+          const optimizedImage = await readOptimizedImageAsDataUrl(file);
           nextAttachments.push({
             id: generateId(),
             name: file.name || "clipboard-image.png",
-            mimeType: getNormalizedMimeType(file),
+            mimeType: optimizedImage.mimeType,
             kind: "image",
-            dataUrl,
-            size: file.size,
+            dataUrl: optimizedImage.dataUrl,
+            size: optimizedImage.size,
           });
           continue;
         }
@@ -298,7 +318,7 @@ export function ChatInput({
     setTeacherPromptSuggestions([]);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if ((!input.trim() && attachments.length === 0 && formulaChips.length === 0) || isLoading || isProcessingFiles) return;
     const rawContentToSend = [
       input.trim(),
@@ -312,7 +332,9 @@ export function ChatInput({
       ? compactTeacherPromptForAttachments(rawContentToSend, attachments)
       : rawContentToSend;
 
-    onSend(contentToSend, attachments);
+    const sendResult = await onSend(contentToSend, attachments);
+    if (sendResult === false) return;
+
     setInput("");
     setFormulaChips([]);
     onAttachmentsChange([]);
@@ -384,7 +406,7 @@ export function ChatInput({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit();
+      void handleSubmit();
     }
   };
 
@@ -581,7 +603,7 @@ export function ChatInput({
                 </span>
               )}
               <Button
-                onClick={handleSubmit}
+                onClick={() => void handleSubmit()}
                 disabled={!canSend}
                 size="icon"
                 className={cn(
@@ -1185,6 +1207,63 @@ function hasDraggedFile(dataTransfer: DataTransfer) {
 function estimateDataUrlSize(dataUrl: string) {
   const base64 = dataUrl.split(",")[1] ?? "";
   return Math.round((base64.length * 3) / 4);
+}
+
+async function readOptimizedImageAsDataUrl(file: File) {
+  try {
+    const dataUrl = await drawImageToDataUrl(file);
+    return {
+      dataUrl,
+      mimeType: AI_IMAGE_MIME_TYPE,
+      size: estimateDataUrlSize(dataUrl),
+    };
+  } catch {
+    const dataUrl = await readFileAsDataUrl(file);
+    return {
+      dataUrl,
+      mimeType: getNormalizedMimeType(file),
+      size: file.size,
+    };
+  }
+}
+
+async function drawImageToDataUrl(file: File) {
+  const image = await loadImageElement(file);
+  const maxEdge = Math.max(image.naturalWidth, image.naturalHeight);
+  const scale = maxEdge > AI_IMAGE_MAX_EDGE ? AI_IMAGE_MAX_EDGE / maxEdge : 1;
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("Cannot optimize image");
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, width, height);
+  context.drawImage(image, 0, 0, width, height);
+
+  return canvas.toDataURL(AI_IMAGE_MIME_TYPE, AI_IMAGE_QUALITY);
+}
+
+function loadImageElement(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const imageUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      URL.revokeObjectURL(imageUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(imageUrl);
+      reject(new Error("Cannot load image"));
+    };
+    image.src = imageUrl;
+  });
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {

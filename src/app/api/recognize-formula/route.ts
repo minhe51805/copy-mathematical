@@ -14,7 +14,7 @@ interface RecognizeFormulaRequest {
 }
 
 interface RecognitionDebug {
-  provider: "ai-gateway" | "missing";
+  provider: "ai-gateway" | "gemini-aistudio" | "missing";
   hasGatewayUrl: boolean;
   hasGatewayKey: boolean;
   baseUrlHost: string | null;

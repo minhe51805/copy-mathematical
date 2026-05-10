@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { Check, ChevronDown, Copy, Download, FileText, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -19,7 +19,7 @@ interface MessageProps {
   testPaperContent?: string;
 }
 
-export function Message({ message, onExport, testPaperContent }: MessageProps) {
+function MessageComponent({ message, onExport, testPaperContent }: MessageProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
@@ -168,6 +168,12 @@ export function Message({ message, onExport, testPaperContent }: MessageProps) {
     </TooltipProvider>
   );
 }
+
+export const Message = memo(MessageComponent, (previous, next) =>
+  previous.message === next.message
+  && previous.onExport === next.onExport
+  && previous.testPaperContent === next.testPaperContent
+);
 
 function ExportDocumentCard({
   content,
