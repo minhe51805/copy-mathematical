@@ -185,6 +185,10 @@ export function getAIProviderUserMessage(error: unknown) {
   const hasProcessingTimeout = /async request timed out|last status:\s*processing|timeout|524|504/i.test(message);
   const hasCapacityError = /no available processing capacity|service unavailable|capacity| 503[:\s]/i.test(message);
 
+  if (/gemini ai studio returned 40[13]|permission_denied|denied access|api key not valid|permission denied/i.test(message)) {
+    return "Gemini AI Studio đang từ chối project/API key hiện tại (403 PERMISSION_DENIED). Hãy đổi AI_PROVIDER=ai-gateway trong .env.local nếu đã có gateway, hoặc tạo Gemini API key mới từ project khác. Nếu đang dùng model preview, đổi GEMINI_MODEL về gemini-2.5-flash rồi khởi động lại server.";
+  }
+
   if (hasProcessingTimeout && hasCapacityError) {
     return `${providerLabel} đang kẹt: provider xử lý quá lâu hoặc đang hết capacity. Đây là lỗi phía provider/model, không phải do ảnh hoặc prompt. Bạn thử gửi lại sau ít phút, hoặc cắt ảnh/file thành phần nhỏ hơn để request nhẹ hơn.`;
   }
@@ -310,9 +314,22 @@ export function getOpenAIConfigForLog() {
 
 export async function generateAIText(options: GenerateTextOptions) {
   if (getAIProvider() === "gemini-aistudio") {
-    return generateGeminiAIStudioText(options);
+    try {
+      return await generateGeminiAIStudioText(options);
+    } catch (error) {
+      if (shouldFallbackFromGeminiAIStudio(error) && hasGatewayFallbackConfig()) {
+        console.warn("Gemini AI Studio failed; falling back to AI Gateway.");
+        return generateAIGatewayText(options);
+      }
+
+      throw error;
+    }
   }
 
+  return generateAIGatewayText(options);
+}
+
+async function generateAIGatewayText(options: GenerateTextOptions) {
   const config = getGatewayConfig();
   const model = options.model ?? getAIModel(options.purpose ?? "chat");
   const body = createGatewayBody({
@@ -366,10 +383,27 @@ async function generateGeminiAIStudioText(options: GenerateTextOptions) {
   const responseText = await response.text();
 
   if (!response.ok) {
-    throw new Error(`Gemini AI Studio returned ${response.status}: ${truncate(stripHtml(responseText), 360)}`);
+    throw new AIGatewayError(
+      `Gemini AI Studio returned ${response.status}: ${truncate(stripHtml(responseText), 360)}`,
+      response.status,
+      "gemini-aistudio",
+      responseText
+    );
   }
 
   return extractGatewayText(parseGatewayResponse(responseText));
+}
+
+function shouldFallbackFromGeminiAIStudio(error: unknown) {
+  if (!(error instanceof AIGatewayError) || error.provider !== "gemini-aistudio") {
+    return false;
+  }
+
+  return [401, 403, 404, 408, 429, 500, 502, 503, 504].includes(error.status);
+}
+
+function hasGatewayFallbackConfig() {
+  return Boolean(getRawGatewayUrl() && getRawGatewayKey());
 }
 
 function createGeminiAIStudioBody(options: Required<Pick<GenerateTextOptions, "model">> & GenerateTextOptions) {
