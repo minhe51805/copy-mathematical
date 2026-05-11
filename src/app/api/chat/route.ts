@@ -8,8 +8,12 @@ import {
   type AIChatMessage,
   type AIContentPart,
 } from "@/lib/openai";
-import { buildMessageTextWithAttachments } from "@/lib/attachment-content";
+import { buildMessageTextWithAttachments, isFullCopyRequest } from "@/lib/attachment-content";
 import { ASSISTANT_MODES, type AssistantModeId } from "@/lib/assistant-modes";
+import {
+  createTeacherResearchContext,
+  type TeacherResearchContext,
+} from "@/lib/teacher-research";
 import {
   createTeacherTestAgentPlan,
   formatTeacherTestAgentPrompt,
@@ -113,20 +117,35 @@ function createTextStreamResponse(text: string, corsHeaders: HeadersInit) {
 
 async function createGatewayText(messages: IncomingMessage[], mode?: AssistantModeId) {
   const modeConfig = mode ? ASSISTANT_MODES[mode] : undefined;
-  const model = getAIModel("chat");
+  const latestHasImages = hasImageAttachments(messages[messages.length - 1]?.attachments);
+  const preferredProvider = latestHasImages ? "gemini-aistudio" : undefined;
+  const model = latestHasImages ? getAIModel("chat", "gemini-aistudio") : getAIModel("chat");
   const config = getOpenAIConfigForLog();
   const gatewayMessages = prepareGatewayMessages(messages, mode);
+  const researchContext = await createTeacherResearchContext({ mode, messages });
   const latestContent = messages[messages.length - 1]?.content;
   const isContinuation = isContinuationRequest(latestContent);
   const isLargeGeneration = hasLargeGenerationRequest(latestContent);
+  const responseStyleInstruction = buildResponseStyleInstruction(latestContent);
 
-  console.log("Using AI gateway model:", model);
+  console.log("Using AI model:", model);
+  if (latestHasImages) {
+    console.log("Image request detected: preferring Gemini AI Studio before gateway fallback.");
+  }
   console.log("AI provider:", config.provider, config.baseURL, config.generatePath);
+  if (researchContext) {
+    console.log(
+      "Teacher research:",
+      `${researchContext.sourceCount} sources`,
+      researchContext.providers.join(",") || "none"
+    );
+    console.log("Teacher research queries:", researchContext.queries.join(" | "));
+  }
 
   return generateAIText({
     purpose: "chat",
-    model,
-    system: getSystemPrompt(mode),
+    preferredProvider,
+    system: getSystemPrompt(mode, researchContext, responseStyleInstruction),
     messages: gatewayMessages.map(toAIChatMessage),
     temperature: modeConfig?.model.temperature ?? 0.7,
     maxOutputTokens: isLargeGeneration || isContinuation
@@ -388,9 +407,23 @@ function normalizeForIntent(value: string) {
     .trim();
 }
 
-function getSystemPrompt(mode?: AssistantModeId) {
+function getSystemPrompt(
+  mode?: AssistantModeId,
+  researchContext?: TeacherResearchContext | null,
+  responseStyleInstruction?: string
+) {
+  const researchPrompt = researchContext?.prompt;
+  const researchInstruction = researchContext
+    ? [
+      "Bạn đang nhận thêm output từ một research sub-agent.",
+      "Ưu tiên nguồn [S1], [S2]... khi trả lời.",
+      "Nếu nguồn chưa đủ mạnh hoặc còn mơ hồ, hãy nói rõ phần nào cần kiểm chứng thêm.",
+      "Khi có nhiều nguồn, hãy đối chiếu rồi mới kết luận.",
+    ].join(" ")
+    : "";
+
   if (!mode || !ASSISTANT_MODES[mode]) {
-    return SYSTEM_PROMPT;
+    return [SYSTEM_PROMPT, researchPrompt, researchInstruction].filter(Boolean).join("\n\n");
   }
 
   return [
@@ -398,7 +431,42 @@ function getSystemPrompt(mode?: AssistantModeId) {
     "",
     `Workspace preset: ${ASSISTANT_MODES[mode].badge}`,
     ASSISTANT_MODES[mode].systemPrompt,
+    researchPrompt ? `\n${researchPrompt}` : "",
+    researchInstruction ? `\n${researchInstruction}` : "",
+    responseStyleInstruction ? `\n${responseStyleInstruction}` : "",
   ].join("\n");
+}
+
+function buildResponseStyleInstruction(content?: string) {
+  const normalized = normalizeForIntent(content ?? "");
+  if (!normalized) {
+    return "Nếu người dùng chưa nói rõ muốn giải hay chỉ chép/trích xuất, hãy ưu tiên trình bày lại nội dung, không tự thêm lời giải.";
+  }
+
+  const explicitSolve = hasExplicitSolveIntent(normalized);
+  const copyOrFormatIntent = isFullCopyRequest(content ?? "") || hasCopyOrFormatIntent(normalized);
+
+  if (copyOrFormatIntent && !explicitSolve) {
+    return [
+      "Người dùng chỉ muốn chép lại, trích xuất hoặc định dạng nội dung.",
+      "KHÔNG tự giải, KHÔNG thêm lời giải, KHÔNG suy diễn đáp án.",
+      "Chỉ giữ đúng nội dung, công thức, bảng biểu và hỏi lại nếu thiếu dữ kiện để chép chính xác.",
+    ].join(" ");
+  }
+
+  if (!explicitSolve) {
+    return "Nếu người dùng chưa yêu cầu giải rõ ràng, hãy ưu tiên chép lại, trích xuất hoặc định dạng nội dung; không tự tạo lời giải hay đáp án.";
+  }
+
+  return "Người dùng đã yêu cầu giải rõ ràng, nên có thể trình bày lời giải. Vẫn không được bịa đáp án khi dữ kiện còn thiếu.";
+}
+
+function hasExplicitSolveIntent(normalized: string) {
+  return /\b(giai|giai bai|loi giai|tinh|tim|chung minh|prove|solve|calculate|derive|show that|find|determine|compute|lam bai|trinh bay loi giai|so sanh cach giai)\b/i.test(normalized);
+}
+
+function hasCopyOrFormatIntent(normalized: string) {
+  return /\b(copy|chep|trich|xuat file|xuat|word|pdf|latex|mathtype|format|dinh dang|nguyen van|toan bo|sao chep|paste|viet lai|trinh bay lai|tai lieu)\b/i.test(normalized);
 }
 
 function toAIChatMessage(message: IncomingMessage): AIChatMessage {
@@ -433,4 +501,8 @@ function toAIChatMessage(message: IncomingMessage): AIChatMessage {
 
 function isValidImageDataUrl(value: unknown): value is string {
   return typeof value === "string" && /^data:image\/[a-z0-9.+-]+;base64,/i.test(value);
+}
+
+function hasImageAttachments(attachments: IncomingAttachment[] | undefined) {
+  return attachments?.some((attachment) => isValidImageDataUrl(attachment.dataUrl)) ?? false;
 }

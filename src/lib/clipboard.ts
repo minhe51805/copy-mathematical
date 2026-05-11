@@ -311,7 +311,7 @@ function prepareKatexForVisualClipboard(root: HTMLElement) {
   });
 }
 
-function replaceKatexWithMathmlForWord(root: HTMLElement) {
+export function replaceKatexWithMathmlForWord(root: HTMLElement) {
   const displayNodes = [
     ...(root.matches(".katex-display") ? [root] : []),
     ...Array.from(root.querySelectorAll<HTMLElement>(".katex-display")),

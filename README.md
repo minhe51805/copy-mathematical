@@ -35,6 +35,30 @@ NEXT_PUBLIC_MODEL_NAME=Gemini
 
 Tat ca luong goi model (`/api/chat`, `/api/export-variants`, `/api/recognize-formula`) di qua AI Gateway bang `x-api-key`. App se goi `/v1/vertex/generate` truoc va fallback sang `/v1/gemini/generate`. Chat va export dung async polling mac dinh de tranh loi Cloudflare 524 khi request lau. Mac dinh app cho async request doi toi 90 giay; neu tai lieu lon van bi timeout, hay chia yeu cau thanh tung phan nho hon hoac tach thanh flow background job co man hinh trang thai.
 
+## Teacher Research
+
+Teacher Studio co research sub-agent nhe: khi giao vien hoi cac cau kieu "tim them nguon", "tra cuu", "cap nhat", "dan chung", "tai lieu tham khao", backend se tu chay search, dua ket qua vao prompt va yeu cau AI tra loi kem trich dan `[S1]`, `[S2]`.
+
+```env
+TEACHER_RESEARCH_ENABLED=true
+TEACHER_RESEARCH_SEARCH_PROVIDER=auto
+TEACHER_RESEARCH_MAX_QUERIES=2
+TEACHER_RESEARCH_MAX_RESULTS=8
+
+# Khuyen nghi neu muon search tot va mien phi/local:
+TEACHER_RESEARCH_SEARXNG_URL=http://localhost:8080
+
+# Tuy chon provider co API key:
+TEACHER_RESEARCH_TAVILY_API_KEY=
+TEACHER_RESEARCH_BRAVE_API_KEY=
+```
+
+Neu khong cau hinh SearXNG/Tavily/Brave, app van thu Wikipedia va DuckDuckGo Instant Answer lam fallback nhe hon. De chay SearXNG local:
+
+```bash
+docker run -d -p 8080:8080 --name teacher-searxng searxng/searxng
+```
+
 ## Deploy day du tinh nang
 
 Ung dung nay co route server, vi vay ban deploy day du nen dung Vercel/Netlify/Render hoac mot server Node.js co bien moi truong `AI_GATEWAY_PRIMARY_URL` va `AI_GATEWAY_PRIMARY_KEY`.

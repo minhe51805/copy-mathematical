@@ -22,9 +22,11 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { hasTestPaperContent } from "@/lib/test-paper";
+import { isTeacherResearchPrompt } from "@/lib/teacher-research-intent";
 import type { Message as MessageType } from "@/types";
 import { cn } from "@/lib/utils";
 import { Message } from "./message";
+import { TeacherResearchTrace } from "./teacher-research-trace";
 
 interface MessageListProps {
   messages: MessageType[];
@@ -112,6 +114,17 @@ export function MessageList({
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const latestUserMessage = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (message?.role === "user") {
+        return message.content ?? "";
+      }
+    }
+    return "";
+  }, [messages]);
+  const showTeacherResearchTrace =
+    isTeacherWorkspace && isLoading && isTeacherResearchPrompt(latestUserMessage);
   const testPaperContentByMessageId = useMemo(() => {
     if (!enableTestPdfExport) {
       return new Map<string, string>();
@@ -213,16 +226,25 @@ export function MessageList({
           ))}
 
           {isLoading && (
-            <div className="flex gap-3 animate-fade-in">
-              <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
-              <div className="flex flex-1 flex-col gap-2 pt-1">
-                <div className="flex h-10 w-fit items-center gap-1 rounded-[9.6px] border border-border/15 bg-card px-4 shadow-[var(--shadow-sm)]">
-                  <div className="typing-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--terracotta))]" />
-                  <div className="typing-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--terracotta))]" />
-                  <div className="typing-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--terracotta))]" />
+            <div className="flex flex-col gap-4 animate-fade-in">
+              {showTeacherResearchTrace && (
+                <TeacherResearchTrace
+                  query={latestUserMessage}
+                  hint="Teacher Studio đang mở web, đọc nguồn và chuẩn bị bản trả lời có trích dẫn."
+                />
+              )}
+
+              <div className="flex gap-3">
+                <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
+                <div className="flex flex-1 flex-col gap-2 pt-1">
+                  <div className="flex h-10 w-fit items-center gap-1 rounded-[9.6px] border border-border/15 bg-card px-4 shadow-[var(--shadow-sm)]">
+                    <div className="typing-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--terracotta))]" />
+                    <div className="typing-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--terracotta))]" />
+                    <div className="typing-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--terracotta))]" />
+                  </div>
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
                 </div>
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
               </div>
             </div>
           )}

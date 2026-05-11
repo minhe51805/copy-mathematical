@@ -117,9 +117,9 @@ export const ASSISTANT_MODES: Record<AssistantModeId, AssistantModeConfig> = {
         },
         {
           label: "Nguồn tham khảo",
-          description: "Gợi ý phần nguồn, ghi rõ mục cần kiểm chứng.",
+          description: "Tự tra cứu web khi cần nguồn mới, có trích dẫn để giáo viên kiểm chứng.",
           prompt:
-            "Từ nội dung hiện có, hãy lập phần nguồn tham khảo và ghi chú sử dụng. Không bịa nguồn. Nếu chưa đủ dữ liệu nguồn, hãy tạo mục 'Cần giáo viên bổ sung/kiểm chứng'.",
+            "Hãy tìm thêm nguồn tham khảo đáng tin cậy cho chủ đề này rồi tổng hợp thành mục nguồn dùng cho giáo án. Ưu tiên nguồn chính thống, học thuật hoặc trang giáo dục. Không bịa nguồn; nếu nguồn chưa đủ mạnh, ghi rõ phần cần giáo viên kiểm chứng.",
         },
       ],
       promptStarters: [
@@ -134,6 +134,10 @@ export const ASSISTANT_MODES: Record<AssistantModeId, AssistantModeConfig> = {
         {
           label: "Biến file thành phiếu học tập",
           text: "Đọc file tôi đưa lên và chuyển thành phiếu học tập phân tầng cho học sinh, có đáp án ngắn ở cuối.",
+        },
+        {
+          label: "Tra cứu nguồn",
+          text: "Tìm thêm nguồn tham khảo mới và đáng tin cậy cho chủ đề này. Tổng hợp ngắn gọn, gắn trích dẫn nguồn và đề xuất cách đưa vào giáo án.",
         },
       ],
       reviewChecklist: [

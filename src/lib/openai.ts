@@ -15,6 +15,7 @@ export interface AIChatMessage {
 
 interface GenerateTextOptions {
   purpose?: AIModelPurpose;
+  preferredProvider?: AIProvider;
   model?: string;
   system?: string;
   messages: AIChatMessage[];
@@ -255,8 +256,8 @@ export function getAIProviderDebug() {
   }
 }
 
-export function getAIModel(purpose: AIModelPurpose = "chat") {
-  if (getAIProvider() === "gemini-aistudio") {
+export function getAIModel(purpose: AIModelPurpose = "chat", provider: AIProvider = getAIProvider()) {
+  if (provider === "gemini-aistudio") {
     const purposeModel =
       purpose === "chat"
         ? process.env.GEMINI_CHAT_MODEL?.trim()
@@ -313,17 +314,37 @@ export function getOpenAIConfigForLog() {
 }
 
 export async function generateAIText(options: GenerateTextOptions) {
-  if (getAIProvider() === "gemini-aistudio") {
+  const preferredProvider = normalizePreferredProvider(options.preferredProvider);
+  const attemptOrder = createProviderAttemptOrder(preferredProvider);
+
+  const errors: AIGatewayError[] = [];
+
+  for (const provider of attemptOrder) {
     try {
-      return await generateGeminiAIStudioText(options);
+      return await generateAITextWithProvider(provider, options);
     } catch (error) {
-      if (shouldFallbackFromGeminiAIStudio(error) && hasGatewayFallbackConfig()) {
-        console.warn("Gemini AI Studio failed; falling back to AI Gateway.");
-        return generateAIGatewayText(options);
+      if (error instanceof AIGatewayError) {
+        errors.push(error);
+
+        if (shouldTryNextProvider(error)) {
+          console.warn(
+            `AI provider ${provider} failed, falling back to next provider if available.`,
+            error.message
+          );
+          continue;
+        }
       }
 
       throw error;
     }
+  }
+
+  throw combineGatewayErrors(errors);
+}
+
+async function generateAITextWithProvider(provider: AIProvider, options: GenerateTextOptions) {
+  if (provider === "gemini-aistudio") {
+    return generateGeminiAIStudioText(options);
   }
 
   return generateAIGatewayText(options);
@@ -331,7 +352,7 @@ export async function generateAIText(options: GenerateTextOptions) {
 
 async function generateAIGatewayText(options: GenerateTextOptions) {
   const config = getGatewayConfig();
-  const model = options.model ?? getAIModel(options.purpose ?? "chat");
+  const model = options.model ?? getAIModel(options.purpose ?? "chat", "ai-gateway");
   const body = createGatewayBody({
     ...options,
     model,
@@ -362,7 +383,7 @@ async function generateAIGatewayText(options: GenerateTextOptions) {
 
 async function generateGeminiAIStudioText(options: GenerateTextOptions) {
   const apiKey = getRawGeminiKey();
-  const model = normalizeGeminiModelName(options.model ?? getAIModel(options.purpose ?? "chat"));
+  const model = normalizeGeminiModelName(options.model ?? getAIModel(options.purpose ?? "chat", "gemini-aistudio"));
 
   if (!apiKey) {
     throw new Error("Missing GEMINI_API_KEY in backend env.");
@@ -394,16 +415,46 @@ async function generateGeminiAIStudioText(options: GenerateTextOptions) {
   return extractGatewayText(parseGatewayResponse(responseText));
 }
 
-function shouldFallbackFromGeminiAIStudio(error: unknown) {
-  if (!(error instanceof AIGatewayError) || error.provider !== "gemini-aistudio") {
-    return false;
-  }
-
-  return [401, 403, 404, 408, 429, 500, 502, 503, 504].includes(error.status);
-}
-
 function hasGatewayFallbackConfig() {
   return Boolean(getRawGatewayUrl() && getRawGatewayKey());
+}
+
+function hasGeminiAIStudioConfig() {
+  return Boolean(getRawGeminiKey());
+}
+
+function normalizePreferredProvider(provider: AIProvider | undefined): AIProvider {
+  if (provider === "gemini-aistudio" && hasGeminiAIStudioConfig()) {
+    return provider;
+  }
+
+  if (provider === "ai-gateway" && hasGatewayFallbackConfig()) {
+    return provider;
+  }
+
+  return getAIProvider();
+}
+
+function createProviderAttemptOrder(preferredProvider: AIProvider) {
+  const attemptOrder: AIProvider[] = [];
+
+  if (preferredProvider === "gemini-aistudio" && hasGeminiAIStudioConfig()) {
+    attemptOrder.push("gemini-aistudio");
+  }
+
+  if (preferredProvider === "ai-gateway" && hasGatewayFallbackConfig()) {
+    attemptOrder.push("ai-gateway");
+  }
+
+  if (!attemptOrder.includes("gemini-aistudio") && hasGeminiAIStudioConfig()) {
+    attemptOrder.push("gemini-aistudio");
+  }
+
+  if (!attemptOrder.includes("ai-gateway") && hasGatewayFallbackConfig()) {
+    attemptOrder.push("ai-gateway");
+  }
+
+  return attemptOrder;
 }
 
 function createGeminiAIStudioBody(options: Required<Pick<GenerateTextOptions, "model">> & GenerateTextOptions) {
@@ -682,6 +733,14 @@ function extractGatewayText(response: GatewayGenerateResponse) {
 
 function shouldTryNextEndpoint(error: AIGatewayError) {
   return [404, 408, 429, 500, 502, 503, 504, 522, 524].includes(error.status);
+}
+
+function shouldTryNextProvider(error: AIGatewayError) {
+  if (error.provider === "custom") {
+    return [404, 408, 429, 500, 502, 503, 504, 522, 524].includes(error.status);
+  }
+
+  return [401, 403, 404, 408, 429, 500, 502, 503, 504, 522, 524].includes(error.status);
 }
 
 function combineGatewayErrors(errors: AIGatewayError[]) {

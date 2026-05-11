@@ -1,4 +1,5 @@
 import { normalizeMathMarkdown } from "./math-utils";
+import { replaceKatexWithMathmlForWord } from "./clipboard";
 
 const WORD_EXPORT_STYLE_PROPERTIES = [
   "border-collapse",
@@ -144,6 +145,23 @@ const WORD_HTML_CSS = `
     font-family: KaTeX_Main, "Times New Roman", serif;
     text-rendering: geometricPrecision;
   }
+  .math-chat-word math {
+    font-family: "Cambria Math", "Times New Roman", serif;
+    font-size: 1.05em;
+    line-height: 1.2;
+  }
+  .math-chat-word math * {
+    font-family: inherit;
+  }
+  .math-chat-word .math-word-inline {
+    display: inline;
+    vertical-align: middle;
+  }
+  .math-chat-word .math-word-display {
+    display: block;
+    margin: 12px 0;
+    text-align: center;
+  }
   .math-chat-word .katex .mathnormal {
     font-family: KaTeX_Math;
   }
@@ -236,9 +254,10 @@ export function downloadDocx(blob: Blob, filename: string = "math-chat.doc") {
 
 function createRenderedContentHtml(element: HTMLElement) {
   const clone = element.cloneNode(true) as HTMLElement;
+  inlineRenderedStyles(element, clone);
+  replaceKatexWithMathmlForWord(clone);
   removeHiddenMath(clone);
   trimUiOnlyAttributes(clone);
-  inlineRenderedStyles(element, clone);
   return clone.innerHTML;
 }
 
@@ -297,7 +316,10 @@ function trimUiOnlyAttributes(root: HTMLElement) {
     node.removeAttribute("data-state");
     node.removeAttribute("data-copy-ui");
     node.removeAttribute("aria-hidden");
-    node.removeAttribute("class");
+
+    if (!node.classList.contains("math-word-inline") && !node.classList.contains("math-word-display")) {
+      node.removeAttribute("class");
+    }
   });
 }
 

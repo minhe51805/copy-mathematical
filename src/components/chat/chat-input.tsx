@@ -61,8 +61,8 @@ type TeacherFilePrompt = {
   prompt: string;
 };
 
-const AI_IMAGE_MAX_EDGE = 1600;
-const AI_IMAGE_QUALITY = 0.88;
+const AI_IMAGE_MAX_EDGE = 1280;
+const AI_IMAGE_QUALITY = 0.78;
 const AI_IMAGE_MIME_TYPE = "image/jpeg";
 
 export function ChatInput({
