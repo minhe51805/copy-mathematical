@@ -86,5 +86,100 @@ export function sanitizeAssistantContent(content: string): string {
     }
   }
 
-  return cleaned.trimStart();
+  return normalizeQuestionLayout(cleaned.trimStart());
+}
+
+export function normalizeQuestionLayout(content: string): string {
+  const normalized = normalizeMathMarkdown(content).replace(/\r\n?/g, "\n");
+
+  if (!hasStructuredQuestionPattern(normalized)) {
+    return normalized.trimStart();
+  }
+
+  const output: string[] = [];
+
+  for (const rawLine of normalized.split("\n")) {
+    const line = rawLine.trimEnd();
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      if (output.length && output[output.length - 1] !== "") {
+        output.push("");
+      }
+      continue;
+    }
+
+    if (isQuestionHeadingLine(trimmed)) {
+      if (output.length && output[output.length - 1] !== "") {
+        output.push("");
+      }
+      output.push(trimmed);
+      continue;
+    }
+
+    if (isQuestionControlLine(trimmed)) {
+      if (output.length && output[output.length - 1] !== "") {
+        output.push("");
+      }
+      output.push(trimmed);
+      continue;
+    }
+
+    const splitSubLines = splitInlineQuestionSubLines(trimmed);
+    if (splitSubLines.length > 1) {
+      output.push(...splitSubLines);
+      continue;
+    }
+
+    output.push(trimmed);
+  }
+
+  return output
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimStart();
+}
+
+function hasStructuredQuestionPattern(value: string) {
+  if (/(?:^|\s)(?:[A-D][.)]\s+|[a-d][.)](?=\s|[$\\(0-9\-+]))/.test(value)) {
+    return true;
+  }
+
+  return /(?:\b(?:Bài|Bai|Câu|Cau)\s*\d+|\b[A-D][.)]\s+|\b[a-d][.)]\s+|\b(?:Đáp án|Dap an|Lời giải|Loi giai|Giải thích|Giai thich|Chứng minh|Chung minh|Bước|Buoc)\b)/i.test(value);
+}
+
+function isQuestionHeadingLine(value: string) {
+  return /^(?:Bài|Bai|Câu|Cau)\s*\d+(?:\b|[\s.:：\-–—)]|$)/i.test(value);
+}
+
+function isQuestionControlLine(value: string) {
+  return /^(?:Đáp án|Dap an|Lời giải|Loi giai|Giải thích|Giai thich|Chứng minh|Chung minh|Bước|Buoc)\b/i.test(value);
+}
+
+function splitInlineQuestionSubLines(value: string) {
+  const markers = [...value.matchAll(/(?:^|\s)([a-dA-D])[.)](?=\s|[$\\(0-9\-+])/g)];
+
+  if (!markers.length) {
+    return [value];
+  }
+
+  const firstMatch = markers[0];
+  const firstIndex = firstMatch.index ?? -1;
+
+  if (firstIndex < 0) {
+    return [value];
+  }
+
+  const stem = value.slice(0, firstIndex).trim();
+  const tail = value.slice(firstIndex).trim();
+  const subLines = tail
+    .split(/\s*(?=(?:[a-dA-D])[.)](?:\s|[$\\(0-9\-+]))/g)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (!subLines.length) {
+    return stem ? [stem, tail] : [value];
+  }
+
+  return stem ? [stem, ...subLines] : subLines;
 }

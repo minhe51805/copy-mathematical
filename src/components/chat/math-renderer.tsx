@@ -286,6 +286,7 @@ function CopyableMarkdownBlock({
 
   return (
     <div
+      data-export-block="copyable"
       className={cn(
         "overflow-hidden rounded-xl border border-border/15 bg-card shadow-[var(--shadow-sm)]",
         className
@@ -327,6 +328,7 @@ function CopyableMarkdownBlock({
       </div>
       <div
         ref={contentRef}
+        data-export-content="true"
         data-font="mathtype"
         className={cn(
           "px-4 py-3",

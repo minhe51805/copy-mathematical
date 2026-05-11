@@ -1,4 +1,4 @@
-import { normalizeMathMarkdown } from "./math-utils";
+import { normalizeMathMarkdown, normalizeQuestionLayout } from "./math-utils";
 import { replaceKatexWithMathmlForWord } from "./clipboard";
 
 const WORD_EXPORT_STYLE_PROPERTIES = [
@@ -159,8 +159,9 @@ const WORD_HTML_CSS = `
   }
   .math-chat-word .math-word-display {
     display: block;
-    margin: 12px 0;
-    text-align: center;
+    margin: 6px 0 8px;
+    text-align: left;
+    overflow-wrap: anywhere;
   }
   .math-chat-word .katex .mathnormal {
     font-family: KaTeX_Math;
@@ -185,9 +186,9 @@ const WORD_HTML_CSS = `
   }
   .math-chat-word .katex-display {
     display: block;
-    margin: 12px 0;
-    padding: 10px 12px;
-    text-align: center;
+    margin: 6px 0 8px;
+    padding: 4px 8px;
+    text-align: left;
     overflow: visible;
     background: #f7f7f7;
     border: 1px solid #d9d9d9;
@@ -195,7 +196,7 @@ const WORD_HTML_CSS = `
   }
   .math-chat-word .katex-display > .katex {
     display: block;
-    text-align: center;
+    text-align: left;
   }
   .math-chat-word .katex-html {
     white-space: nowrap;
@@ -256,6 +257,8 @@ function createRenderedContentHtml(element: HTMLElement) {
   const clone = element.cloneNode(true) as HTMLElement;
   inlineRenderedStyles(element, clone);
   replaceKatexWithMathmlForWord(clone);
+  materializeQuestionLineBreaks(clone);
+  unwrapCopyBlocks(clone);
   removeHiddenMath(clone);
   trimUiOnlyAttributes(clone);
   return clone.innerHTML;
@@ -307,7 +310,24 @@ function removeHiddenMath(root: HTMLElement) {
   });
 }
 
+function unwrapCopyBlocks(root: HTMLElement) {
+  root.querySelectorAll<HTMLElement>('[data-export-block="copyable"]').forEach((block) => {
+    const content = block.querySelector<HTMLElement>('[data-export-content="true"]');
+
+    if (!content) {
+      block.remove();
+      return;
+    }
+
+    block.replaceWith(content);
+  });
+}
+
 function trimUiOnlyAttributes(root: HTMLElement) {
+  root.querySelectorAll("style, script").forEach((node) => {
+    node.remove();
+  });
+
   root.querySelectorAll("[data-copy-ui]").forEach((node) => {
     node.remove();
   });
@@ -324,10 +344,79 @@ function trimUiOnlyAttributes(root: HTMLElement) {
 }
 
 function createFallbackContentHtml(content: string) {
-  return normalizeMathMarkdown(content)
+  return normalizeQuestionLayout(normalizeMathMarkdown(content))
     .split(/\n{2,}/)
     .map((paragraph) => `<p>${formatFallbackInline(paragraph)}</p>`)
     .join("");
+}
+
+function materializeQuestionLineBreaks(root: HTMLElement) {
+  const textNodes = collectTextNodes(root);
+
+  for (const node of textNodes) {
+    const value = node.nodeValue;
+    if (!value || !value.includes("\n") && !hasQuestionMarker(value)) continue;
+
+    const normalized = normalizeQuestionMarkerText(value);
+    if (normalized === value && !normalized.includes("\n")) continue;
+
+    const fragment = document.createDocumentFragment();
+    const parts = normalized.replace(/\r\n?/g, "\n").split("\n");
+
+    parts.forEach((part, index) => {
+      if (index > 0) {
+        fragment.appendChild(document.createElement("br"));
+      }
+
+      if (part) {
+        fragment.appendChild(document.createTextNode(part));
+      }
+    });
+
+    node.replaceWith(fragment);
+  }
+}
+
+function collectTextNodes(root: HTMLElement) {
+  const nodes: Text[] = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const value = node.nodeValue ?? "";
+      if (!value.trim()) {
+        return NodeFilter.FILTER_REJECT;
+      }
+
+      const parent = node.parentElement;
+      if (!parent || parent.closest("style, script, pre, code, math, svg")) {
+        return NodeFilter.FILTER_REJECT;
+      }
+
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+
+  while (walker.nextNode()) {
+    nodes.push(walker.currentNode as Text);
+  }
+
+  return nodes;
+}
+
+function hasQuestionMarker(value: string) {
+  return /(?:^|\s)(?:[a-d]\)|[A-D][.)])\s*/.test(value);
+}
+
+function normalizeQuestionMarkerText(value: string) {
+  let output = value.replace(/\r\n?/g, "\n");
+
+  if (hasQuestionMarker(output)) {
+    output = output
+      .replace(/([:：])\s+([a-d]\))/gi, "$1\n$2")
+      .replace(/[ \t]+([a-d]\))/gi, "\n$1")
+      .replace(/[ \t]+([A-D][.)])\s+/g, "\n$1 ");
+  }
+
+  return output;
 }
 
 function formatFallbackInline(value: string) {

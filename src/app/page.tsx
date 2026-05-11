@@ -1,9 +1,5 @@
-"use client";
-
-import { type FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   BadgeCheck,
@@ -17,16 +13,15 @@ import {
   LayoutPanelTop,
   LibraryBig,
   Paperclip,
-  SendHorizontal,
   Sigma,
   Sparkles,
   SquarePen,
   Table2,
 } from "lucide-react";
 import { MarketingHeader } from "@/components/landing/marketing-header";
+import { HeroPromptBox } from "@/components/landing/hero-prompt-box";
+import { ThemeInit } from "@/components/landing/theme-init";
 import { Button } from "@/components/ui/button";
-import { setPendingGuestPrompt } from "@/lib/guest-access";
-import { initializeTheme } from "@/hooks/use-theme";
 
 const QUICK_ACTIONS = [
   {
@@ -176,12 +171,9 @@ const FOOTER_GROUPS = [
 ];
 
 export default function LandingPage() {
-  useEffect(() => {
-    initializeTheme();
-  }, []);
-
   return (
     <main className="min-h-dvh bg-background text-foreground">
+      <ThemeInit />
       <MarketingHeader />
 
       <section className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-[1440px] flex-col px-5 py-10 md:px-10 md:py-14">
@@ -539,56 +531,6 @@ function MarketingFooter() {
         </div>
       </div>
     </footer>
-  );
-}
-
-function HeroPromptBox() {
-  const router = useRouter();
-  const [prompt, setPrompt] = useState("");
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const value = prompt.trim();
-
-    if (value) {
-      setPendingGuestPrompt(value);
-    }
-
-    router.push("/newchat");
-  }
-
-  return (
-    <form
-      onSubmit={handleSubmit}
-      className="mt-10 w-full max-w-3xl rounded-[28px] border border-border/15 bg-card p-3 shadow-[var(--shadow-md)] transition-all hover:border-border/30 hover:shadow-[var(--shadow-lg)]"
-      aria-label="Bắt đầu chat với AI Math"
-    >
-      <div className="flex min-h-16 items-center gap-3 rounded-[22px] bg-secondary px-4">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border/15 bg-card text-muted-foreground">
-          <Paperclip className="h-4 w-4" />
-        </span>
-        <input
-          value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
-          className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
-          placeholder="Hỏi bài toán, kéo file vào hoặc yêu cầu soạn giáo án..."
-        />
-        <span className="hidden min-w-0 flex-1 truncate text-left text-base text-muted-foreground">
-          Hỏi bài toán, kéo file vào hoặc yêu cầu soạn giáo án...
-        </span>
-        <button
-          type="submit"
-          className="hidden h-10 items-center gap-2 rounded-full bg-[#1F1E1D] px-4 text-sm text-white transition hover:bg-[#0A0A0A] dark:bg-[#FAF9F5] dark:text-[#1F1E1D] dark:hover:bg-white sm:inline-flex"
-        >
-          Bắt đầu
-          <SendHorizontal className="h-4 w-4" />
-        </button>
-        <span className="hidden h-10 items-center gap-2 rounded-full bg-[#1F1E1D] px-4 text-sm text-white dark:bg-[#FAF9F5] dark:text-[#1F1E1D]">
-          Bắt đầu
-          <SendHorizontal className="h-4 w-4" />
-        </span>
-      </div>
-    </form>
   );
 }
 

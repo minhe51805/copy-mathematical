@@ -1,11 +1,287 @@
 "use client";
 
-import html2canvas from "html2canvas";
-import { jsPDF } from "jspdf";
-import renderMathInElement from "katex/contrib/auto-render";
 import { downloadDocx, generateDocx } from "./docx-generator";
 import type { TestPaper, TestQuestion } from "./test-paper";
 import { parseTestPaper } from "./test-paper";
+
+type RenderMathFn = (
+  element: HTMLElement,
+  options?: {
+    delimiters?: Array<{ left: string; right: string; display: boolean }>;
+    throwOnError?: boolean;
+    strict?: string;
+  }
+) => void;
+type JsPdfCtor = typeof import("jspdf").jsPDF;
+type Html2Canvas = typeof import("html2canvas-pro").default;
+
+let renderMathPromise: Promise<RenderMathFn> | null = null;
+function loadRenderMath() {
+  if (!renderMathPromise) {
+    renderMathPromise = import("katex/contrib/auto-render").then(
+      (module) => (module as unknown as { default: RenderMathFn }).default
+    );
+  }
+  return renderMathPromise;
+}
+
+let pdfLibsPromise: Promise<{ jsPDF: JsPdfCtor; html2canvas: Html2Canvas }> | null = null;
+function loadPdfLibs() {
+  if (!pdfLibsPromise) {
+    pdfLibsPromise = Promise.all([
+      import("jspdf"),
+      import("html2canvas-pro"),
+    ]).then(([jspdfModule, html2canvasModule]) => ({
+      jsPDF: jspdfModule.jsPDF,
+      html2canvas: html2canvasModule.default,
+    }));
+  }
+  return pdfLibsPromise;
+}
+
+const MODERN_COLOR_FUNCTION_PATTERN = /\b(?:oklab|oklch|lab|lch|color)\s*\(/i;
+
+const COLOR_FALLBACKS: Record<string, string> = {
+  color: "#141413",
+  backgroundColor: "#ffffff",
+  borderTopColor: "#e5e5e5",
+  borderRightColor: "#e5e5e5",
+  borderBottomColor: "#e5e5e5",
+  borderLeftColor: "#e5e5e5",
+  outlineColor: "#e5e5e5",
+  textDecorationColor: "#141413",
+  fill: "#141413",
+  stroke: "#141413",
+  caretColor: "#141413",
+  columnRuleColor: "#e5e5e5",
+};
+
+const STRIPPABLE_PROPS = ["backgroundImage", "boxShadow", "textShadow", "filter"] as const;
+
+function neutralizeModernColors(root: HTMLElement) {
+  const context = document.createElement("canvas").getContext("2d");
+
+  const coerce = (value: string): string | null => {
+    if (!context) return null;
+    try {
+      context.fillStyle = "#000";
+      context.fillStyle = value;
+      const normalized = context.fillStyle;
+      if (typeof normalized !== "string") return null;
+      return MODERN_COLOR_FUNCTION_PATTERN.test(normalized) ? null : normalized;
+    } catch {
+      return null;
+    }
+  };
+
+  const setKebab = (element: HTMLElement, prop: string, value: string) => {
+    element.style.setProperty(prop.replace(/([A-Z])/g, "-$1").toLowerCase(), value);
+  };
+
+  const elements: HTMLElement[] = [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))];
+
+  for (const element of elements) {
+    const computed = window.getComputedStyle(element);
+
+    for (const [prop, fallback] of Object.entries(COLOR_FALLBACKS)) {
+      const value = computed[prop as keyof CSSStyleDeclaration] as string | undefined;
+      if (!value || !MODERN_COLOR_FUNCTION_PATTERN.test(value)) continue;
+      const coerced = coerce(value);
+      setKebab(element, prop, coerced ?? fallback);
+    }
+
+    for (const prop of STRIPPABLE_PROPS) {
+      const value = computed[prop] as string | undefined;
+      if (value && MODERN_COLOR_FUNCTION_PATTERN.test(value)) {
+        setKebab(element, prop, "none");
+      }
+    }
+  }
+}
+
+const A4_WIDTH_PX = 794;
+const A4_HEIGHT_PX = 1123;
+const PDF_SCALE = 2;
+const PAGE_PADDING_Y = 56;
+
+const PREVIEW_PDF_CSS = `
+  .preview-pdf-root {
+    --background: 0 0% 100%;
+    --foreground: 30 3% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 30 3% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 30 3% 12%;
+    --primary: 30 3% 12%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 45 31% 97%;
+    --secondary-foreground: 30 3% 12%;
+    --muted: 45 18% 93%;
+    --muted-foreground: 43 3% 30%;
+    --accent: 42 19% 91%;
+    --accent-foreground: 30 3% 12%;
+    --border: 30 3% 12%;
+    --input: 30 3% 12%;
+    --ring: 15 63% 60%;
+    --terracotta: 15 63% 60%;
+    --terracotta-foreground: 0 0% 100%;
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+
+    width: ${A4_WIDTH_PX}px;
+    padding: 56px 58px;
+    background: #ffffff;
+    color: #141413;
+    font-family: "Times New Roman", Times, "Cambria Math", serif;
+    font-size: 16px;
+    line-height: 1.55;
+  }
+
+  .preview-pdf-root * {
+    box-sizing: border-box;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  .preview-pdf-root .katex,
+  .preview-pdf-root .katex * {
+    box-sizing: content-box;
+  }
+
+  .preview-pdf-root h1,
+  .preview-pdf-root h2,
+  .preview-pdf-root h3,
+  .preview-pdf-root h4 {
+    font-family: "Times New Roman", Times, serif;
+    color: #141413;
+  }
+
+  .preview-pdf-root h1 { font-size: 24px; margin: 0 0 14px; font-weight: 700; }
+  .preview-pdf-root h2 { font-size: 20px; margin: 18px 0 10px; font-weight: 700; }
+  .preview-pdf-root h3 { font-size: 17px; margin: 14px 0 8px; font-weight: 700; }
+  .preview-pdf-root p { margin: 0 0 10px; }
+  .preview-pdf-root ul,
+  .preview-pdf-root ol { margin: 0 0 10px 24px; padding: 0; }
+  .preview-pdf-root li { margin: 0 0 4px; }
+  .preview-pdf-root table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+  }
+  .preview-pdf-root th,
+  .preview-pdf-root td {
+    border: 1px solid #d4d4d4;
+    padding: 6px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .preview-pdf-root code {
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 0.92em;
+    background: #f5f5f4;
+    padding: 1px 4px;
+    border-radius: 4px;
+  }
+  .preview-pdf-root pre {
+    background: #f5f5f4;
+    border: 1px solid #e5e5e5;
+    border-radius: 6px;
+    padding: 10px 12px;
+    overflow: visible;
+    white-space: pre-wrap;
+  }
+  .preview-pdf-root blockquote {
+    border-left: 3px solid #d4d4d4;
+    margin: 0 0 10px;
+    padding: 4px 12px;
+    color: #4a4a47;
+  }
+  .preview-pdf-root .katex-display {
+    margin: 8px 0;
+    text-align: center;
+    overflow: visible;
+  }
+`;
+
+function createPreviewPdfWrapper(source: HTMLElement) {
+  const clone = source.cloneNode(true) as HTMLElement;
+
+  clone.querySelectorAll("[data-copy-ui]").forEach((node) => node.remove());
+  clone.querySelectorAll("button").forEach((node) => node.remove());
+
+  clone.removeAttribute("class");
+  clone.removeAttribute("style");
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "preview-pdf-root";
+  wrapper.style.position = "fixed";
+  wrapper.style.left = "-10000px";
+  wrapper.style.top = "0";
+  wrapper.style.zIndex = "-1";
+
+  const style = document.createElement("style");
+  style.textContent = PREVIEW_PDF_CSS;
+  wrapper.appendChild(style);
+  wrapper.appendChild(clone);
+
+  return wrapper;
+}
+
+export async function exportElementAsPdf(element: HTMLElement | null, filename: string) {
+  if (!element) {
+    throw new Error("Không tìm thấy nội dung để xuất PDF.");
+  }
+
+  const { jsPDF, html2canvas } = await loadPdfLibs();
+  const wrapper = createPreviewPdfWrapper(element);
+  document.body.appendChild(wrapper);
+
+  try {
+    await waitForFonts();
+    await waitForAnimationFrame();
+
+    const canvas = await html2canvas(wrapper, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      windowWidth: A4_WIDTH_PX,
+      onclone: (_doc, clonedElement) => {
+        neutralizeModernColors(clonedElement as HTMLElement);
+      },
+    });
+
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "pt",
+      format: "a4",
+      compress: true,
+    });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * pageWidth) / canvas.width;
+    const image = canvas.toDataURL("image/jpeg", 0.95);
+
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    pdf.addImage(image, "JPEG", 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+
+    while (heightLeft > 0) {
+      position -= pageHeight;
+      pdf.addPage();
+      pdf.addImage(image, "JPEG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+
+    pdf.save(filename);
+  } finally {
+    wrapper.remove();
+  }
+}
 
 type PdfVariant = "questions" | "answers";
 
@@ -13,11 +289,6 @@ interface ExportTestPdfOptions {
   variant: PdfVariant;
   title?: string;
 }
-
-const A4_WIDTH_PX = 794;
-const A4_HEIGHT_PX = 1123;
-const PDF_SCALE = 2;
-const PAGE_PADDING_Y = 56;
 
 export async function exportTestPdf(content: string, options: ExportTestPdfOptions) {
   const paper = parseTestPaper(content, options.title);
@@ -32,7 +303,7 @@ export async function exportTestPdf(content: string, options: ExportTestPdfOptio
   document.body.appendChild(element);
 
   try {
-    renderMath(element);
+    await renderMath(element);
     await waitForMathLayout();
     paginatePdfElement(element);
     await waitForMathLayout();
@@ -56,7 +327,7 @@ export async function exportTestWord(content: string, options: ExportTestPdfOpti
   document.body.appendChild(element);
 
   try {
-    renderMath(element);
+    await renderMath(element);
     await waitForMathLayout();
     const renderedPaper = element.querySelector<HTMLElement>(".pdf-measure");
     const blob = await generateDocx("", title, renderedPaper);
@@ -310,7 +581,8 @@ function inferFormulaEnd(value: string, commandIndex: number) {
   return commandIndex + endOffset;
 }
 
-function renderMath(element: HTMLElement) {
+async function renderMath(element: HTMLElement) {
+  const renderMathInElement = await loadRenderMath();
   renderMathInElement(element, {
     delimiters: [
       { left: "$$", right: "$$", display: true },
@@ -329,6 +601,8 @@ async function downloadElementAsPdf(element: HTMLElement, filename: string) {
     throw new Error("Không tạo được trang PDF.");
   }
 
+  const { jsPDF, html2canvas } = await loadPdfLibs();
+
   const pdf = new jsPDF({
     orientation: "portrait",
     unit: "pt",
@@ -346,6 +620,9 @@ async function downloadElementAsPdf(element: HTMLElement, filename: string) {
       logging: false,
       windowWidth: A4_WIDTH_PX,
       windowHeight: A4_HEIGHT_PX,
+      onclone: (_doc, clonedElement) => {
+        neutralizeModernColors(clonedElement as HTMLElement);
+      },
     });
     const image = canvas.toDataURL("image/jpeg", 0.95);
 

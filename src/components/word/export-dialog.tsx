@@ -22,7 +22,10 @@ import {
 import { isFullCopyRequest } from "@/lib/attachment-content";
 import { getApiUrl, hasRuntimeApi } from "@/lib/api-url";
 import { generateDocx, downloadDocx, getWordExportFilename } from "@/lib/docx-generator";
+import { exportElementAsPdf } from "@/lib/test-pdf-export";
 import { cn } from "@/lib/utils";
+
+type ExportFormat = "word" | "pdf";
 
 interface ExportDialogProps {
   content: string | null;
@@ -41,6 +44,7 @@ const MAX_CACHED_EXPORTS = 20;
 
 export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
   const [isExporting, setIsExporting] = useState(false);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>("word");
   const [selectedDraftState, setSelectedDraftState] = useState<{
     contentKey: string;
     draftId: ExportDraftId;
@@ -159,8 +163,12 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
 
     setIsExporting(true);
     try {
-      const blob = await generateDocx(selectedDraft.content, selectedDraft.title, previewRef.current);
-      downloadDocx(blob, selectedDraft.filename);
+      if (exportFormat === "pdf") {
+        await exportElementAsPdf(previewRef.current, toPdfFilename(selectedDraft.filename));
+      } else {
+        const blob = await generateDocx(selectedDraft.content, selectedDraft.title, previewRef.current);
+        downloadDocx(blob, selectedDraft.filename);
+      }
       onClose();
     } catch (error) {
       console.error("Export failed:", error);
@@ -192,9 +200,7 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
                     : "Bản gốc là câu trả lời AI ngay phía trên. App sẽ tạo thêm 3 phiên bản bằng AI để bạn xem trước và chọn bản muốn xuất."}
                 </DialogDescription>
               </div>
-              <div className="claude-badge hidden px-3 py-1 text-xs text-muted-foreground md:block">
-                Word .doc
-              </div>
+              <FormatToggle value={exportFormat} onChange={setExportFormat} />
             </div>
           </DialogHeader>
 
@@ -258,7 +264,9 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
                   </div>
                   {selectedDraft && (
                     <div className="rounded-lg border border-border/15 bg-secondary px-3 py-2 text-xs text-muted-foreground">
-                      {getWordExportFilename(selectedDraft.filename)}
+                      {exportFormat === "pdf"
+                        ? toPdfFilename(selectedDraft.filename)
+                        : getWordExportFilename(selectedDraft.filename)}
                     </div>
                   )}
                 </div>
@@ -305,7 +313,7 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
               ) : (
                 <>
                   <Download className="mr-2 h-4 w-4" />
-                  Xuất bản đã chọn
+                  Xuất {exportFormat === "pdf" ? "PDF" : "Word"}
                 </>
               )}
             </Button>
@@ -314,6 +322,65 @@ export function ExportDialog({ content, request, onClose }: ExportDialogProps) {
       </DialogContent>
     </Dialog>
   );
+}
+
+function FormatToggle({
+  value,
+  onChange,
+}: {
+  value: ExportFormat;
+  onChange: (format: ExportFormat) => void;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Dạng file xuất"
+      className="hidden items-center gap-1 rounded-full border border-border/15 bg-secondary p-1 text-xs md:inline-flex"
+    >
+      <FormatToggleButton
+        active={value === "word"}
+        label="Word .doc"
+        onClick={() => onChange("word")}
+      />
+      <FormatToggleButton
+        active={value === "pdf"}
+        label="PDF"
+        onClick={() => onChange("pdf")}
+      />
+    </div>
+  );
+}
+
+function FormatToggleButton({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onClick}
+      className={cn(
+        "rounded-full px-3 py-1 transition-colors",
+        active
+          ? "bg-card text-foreground shadow-[var(--shadow-sm)]"
+          : "text-muted-foreground hover:text-foreground"
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+function toPdfFilename(filename = "math-chat.pdf") {
+  const trimmed = filename.trim() || "math-chat.pdf";
+  return trimmed.replace(/\.(docx|doc|pdf)$/i, "") + ".pdf";
 }
 
 function DraftOption({

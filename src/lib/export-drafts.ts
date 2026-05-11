@@ -1,3 +1,5 @@
+import { normalizeQuestionLayout } from "./math-utils";
+
 export type ExportDraftId = string;
 
 export interface ExportDraft {
@@ -42,7 +44,7 @@ export function isExportOnlyRequest(message: string): boolean {
 }
 
 export function createOriginalExportDraft({ content, request }: CreateExportDraftsInput): ExportDraft {
-  const source = content.trim();
+  const source = normalizeQuestionLayout(content.trim());
   const title = inferTitle(source, request);
   const filenameBase = slugify(title || "math-chat");
 
@@ -57,7 +59,7 @@ export function createOriginalExportDraft({ content, request }: CreateExportDraf
 }
 
 export function createFallbackExportDrafts({ content, request }: CreateExportDraftsInput): ExportDraft[] {
-  const source = content.trim();
+  const source = normalizeQuestionLayout(content.trim());
   const safeRequest = request?.trim();
   const title = inferTitle(source, safeRequest);
   const filenameBase = slugify(title || "math-chat");
@@ -116,7 +118,7 @@ export function createFallbackExportDrafts({ content, request }: CreateExportDra
 }
 
 export function createFullCopyExportDrafts({ content, request }: CreateExportDraftsInput): ExportDraft[] {
-  const source = content.trim();
+  const source = normalizeQuestionLayout(content.trim());
   const safeRequest = request?.trim();
   const title = inferTitle(source, safeRequest);
   const filenameBase = slugify(title || "tai-lieu-day-du");
@@ -253,17 +255,9 @@ function normalizeFilename(filename: string | undefined, fallback: string): stri
 }
 
 function normalizeQuestionSeparators(value: string) {
-  return value
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .replace(/([^\n])\s+((?:Câu|Cau|Bài|Bai)\s*\d+(?:\b|[\s.:：\-–—)]))/gi, "$1\n\n$2")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{4,}/g, "\n\n\n")
-    .trim();
+  return normalizeQuestionLayout(value);
 }
 
 function normalizeSpacingForWord(value: string) {
-  return normalizeQuestionSeparators(value)
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return normalizeQuestionSeparators(value);
 }

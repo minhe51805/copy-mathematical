@@ -1,3 +1,5 @@
+import { normalizeQuestionLayout } from "./math-utils";
+
 export interface TextAttachmentLike {
   kind?: string;
   name?: string;
@@ -168,7 +170,7 @@ function formatLocalDocumentCopy(
 }
 
 function normalizeExtractedCopyText(value: string) {
-  return value
+  return normalizeQuestionLayout(value)
     .replace(/\u0000/g, "")
     .replace(/\u00a0/g, " ")
     .replace(/\r\n/g, "\n")
