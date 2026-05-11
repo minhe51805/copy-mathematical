@@ -36,20 +36,13 @@ export function HeroPromptBox() {
           className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
           placeholder="Hỏi bài toán, kéo file vào hoặc yêu cầu soạn giáo án..."
         />
-        <span className="hidden min-w-0 flex-1 truncate text-left text-base text-muted-foreground">
-          Hỏi bài toán, kéo file vào hoặc yêu cầu soạn giáo án...
-        </span>
         <button
           type="submit"
-          className="hidden h-10 items-center gap-2 rounded-full bg-[#1F1E1D] px-4 text-sm text-white transition hover:bg-[#0A0A0A] dark:bg-[#FAF9F5] dark:text-[#1F1E1D] dark:hover:bg-white sm:inline-flex"
+          className="inline-flex h-10 items-center gap-2 rounded-full bg-[#1F1E1D] px-4 text-sm text-white transition hover:bg-[#0A0A0A] dark:bg-[#FAF9F5] dark:text-[#1F1E1D] dark:hover:bg-white"
         >
           Bắt đầu
           <SendHorizontal className="h-4 w-4" />
         </button>
-        <span className="hidden h-10 items-center gap-2 rounded-full bg-[#1F1E1D] px-4 text-sm text-white dark:bg-[#FAF9F5] dark:text-[#1F1E1D]">
-          Bắt đầu
-          <SendHorizontal className="h-4 w-4" />
-        </span>
       </div>
     </form>
   );

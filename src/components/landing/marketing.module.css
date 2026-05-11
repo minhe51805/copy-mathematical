@@ -1,0 +1,153 @@
+/* Shared marketing-page polish: entrance, hover, and decorative motion */
+
+.fadeUp {
+  opacity: 0;
+  transform: translateY(18px);
+  animation: fadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.fadeUpDelay1 { animation-delay: 0.08s; }
+.fadeUpDelay2 { animation-delay: 0.16s; }
+.fadeUpDelay3 { animation-delay: 0.24s; }
+.fadeUpDelay4 { animation-delay: 0.32s; }
+
+@keyframes fadeUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Stagger children of a grid */
+.staggerGrid > * {
+  opacity: 0;
+  transform: translateY(14px);
+  animation: fadeUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.staggerGrid > *:nth-child(1) { animation-delay: 0.05s; }
+.staggerGrid > *:nth-child(2) { animation-delay: 0.12s; }
+.staggerGrid > *:nth-child(3) { animation-delay: 0.19s; }
+.staggerGrid > *:nth-child(4) { animation-delay: 0.26s; }
+.staggerGrid > *:nth-child(5) { animation-delay: 0.33s; }
+.staggerGrid > *:nth-child(6) { animation-delay: 0.4s; }
+
+/* Card hover lift */
+.cardHover {
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.35s ease,
+    border-color 0.35s ease;
+}
+.cardHover:hover {
+  transform: translateY(-4px);
+  border-color: hsl(15 63% 60% / 0.35);
+  box-shadow: 0 10px 30px -18px hsl(15 63% 30% / 0.35);
+}
+
+/* Decorative floating sketch */
+.heroSketch {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.sineWave {
+  position: absolute;
+  top: 12%;
+  right: -6%;
+  width: 520px;
+  max-width: 60%;
+  opacity: 0.55;
+  animation: drift 14s ease-in-out infinite alternate;
+}
+
+.sineWave path {
+  stroke: hsl(15 63% 60%);
+  stroke-width: 1.4;
+  fill: none;
+  stroke-dasharray: 1200;
+  stroke-dashoffset: 1200;
+  animation: drawLine 2.8s ease-out 0.3s forwards;
+}
+
+.gridDots {
+  position: absolute;
+  bottom: -10%;
+  left: -4%;
+  width: 360px;
+  max-width: 45%;
+  opacity: 0.35;
+  animation: drift 18s ease-in-out infinite alternate-reverse;
+}
+
+.chip {
+  position: absolute;
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-style: italic;
+  color: hsl(15 63% 45%);
+  background: hsl(45 31% 97% / 0.9);
+  border: 1px solid hsl(15 63% 60% / 0.25);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  animation: float 9s ease-in-out infinite;
+  backdrop-filter: blur(4px);
+}
+
+.chip1 { top: 18%; right: 8%; animation-delay: 0s; }
+.chip2 { top: 62%; right: 22%; animation-delay: 1.5s; }
+.chip3 { top: 38%; right: 4%; animation-delay: 3s; }
+
+@keyframes drift {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(-14px, 10px); }
+}
+
+@keyframes drawLine {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-10px) rotate(1.5deg); }
+}
+
+/* Underline on hero accent dot */
+.accentDot {
+  position: relative;
+  display: inline-block;
+}
+.accentDot::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -0.05em;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: hsl(15 63% 60%);
+  transform: translateX(-50%) scale(0);
+  animation: pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.6s forwards;
+}
+@keyframes pop {
+  to { transform: translateX(-50%) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fadeUp,
+  .staggerGrid > *,
+  .sineWave path,
+  .accentDot::after {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    stroke-dashoffset: 0;
+  }
+  .sineWave,
+  .gridDots,
+  .chip {
+    animation: none;
+  }
+}

@@ -5,15 +5,16 @@ import {
   BadgeCheck,
   BookOpenCheck,
   Building2,
-  CheckCircle2,
+  Check,
   GraduationCap,
   HelpCircle,
-  ShieldCheck,
-  Sparkles,
+  Minus,
   UserRound,
 } from "lucide-react";
+import { MarketingFooter } from "@/components/landing/marketing-footer";
 import { MarketingHeader } from "@/components/landing/marketing-header";
-import { Button } from "@/components/ui/button";
+import { HeroDecor } from "@/components/landing/hero-decor";
+import styles from "@/components/landing/marketing.module.css";
 
 export const metadata: Metadata = {
   title: "Pricing | AI Math Chat",
@@ -26,264 +27,240 @@ const PLANS = [
     name: "Free",
     audience: "Học sinh, phụ huynh, sinh viên",
     price: "3 lượt",
-    cadence: "chat miễn phí",
-    description: "Dùng thử nhanh để hỏi bài toán, kiểm tra cách AI trình bày lời giải và thử nhập ảnh.",
+    cadence: "để thử nhanh",
+    description: "Dùng thử để hỏi bài toán, đọc ảnh và xem cách AI trình bày lời giải.",
     href: "/newchat",
     cta: "Bắt đầu miễn phí",
-    features: ["Chat không cần đăng nhập trong giới hạn", "Nhập câu hỏi hoặc ảnh bài toán", "Copy nội dung trả lời", "Đăng nhập khi cần dùng tiếp"],
+    features: ["Chat giới hạn ban đầu", "Nhập câu hỏi hoặc ảnh", "Copy nội dung trả lời", "Đăng nhập khi cần dùng tiếp"],
   },
   {
     icon: BookOpenCheck,
-    name: "Study Plus",
+    name: "Study",
     audience: "Người học cần dùng thường xuyên",
     price: "Cá nhân",
-    cadence: "đăng nhập để lưu lịch sử",
-    description: "Không gian học tập cho việc giải bài, so sánh cách giải, đọc file và luyện bài tương tự.",
+    cadence: "lưu lịch sử học tập",
+    description: "Không gian học tập cho giải bài, đọc file, luyện bài tương tự và hỏi tiếp theo mạch cũ.",
     href: "/login?next=/newchat",
     cta: "Dùng cho học tập",
     highlighted: true,
-    features: ["Chat không giới hạn theo cấu hình hiện tại", "Đọc ảnh, PDF, DOCX, Excel và CSV", "Math Studio để soạn công thức", "Xuất nội dung thành tài liệu khi cần"],
+    features: ["Chat theo cấu hình hiện tại", "Đọc PDF, DOCX, Excel, CSV", "Math Studio cho công thức", "Xuất nội dung khi cần"],
   },
   {
     icon: GraduationCap,
-    name: "Teacher Studio",
-    audience: "Giáo viên, giảng viên, trợ giảng",
-    price: "Giáo viên",
-    cadence: "workspace soạn bài riêng",
-    description: "Tạo giáo án, phiếu học tập, đề kiểm tra, đáp án và nguồn tham khảo từ chủ đề hoặc tài liệu có sẵn.",
+    name: "Teacher",
+    audience: "Giáo viên, trợ giảng",
+    price: "Studio",
+    cadence: "soạn bài riêng",
+    description: "Tạo giáo án, phiếu học tập, đề kiểm tra, đáp án và tài liệu từ chủ đề hoặc file có sẵn.",
     href: "/teacher",
     cta: "Mở Teacher Studio",
-    features: ["Khu làm việc riêng cho giáo viên", "Tạo đề và đáp án Word/PDF", "Gợi ý prompt từ file tải lên", "Hỗ trợ chia tài liệu theo mục tiêu dạy học"],
+    features: ["Workspace riêng cho giáo viên", "Tạo đề và đáp án", "Gợi ý từ file tải lên", "Chuẩn bị Word/PDF"],
   },
   {
     icon: Building2,
     name: "Classroom",
-    audience: "Trung tâm, lớp học, nhóm nội bộ",
+    audience: "Trung tâm, lớp học, nhóm",
     price: "Liên hệ",
-    cadence: "khi cần triển khai nhiều người",
-    description: "Định hướng cho thư viện bài tập, template riêng, phân quyền và dashboard quản trị provider.",
+    cadence: "khi cần triển khai rộng",
+    description: "Dành cho nhóm cần quản trị provider, cấu hình lượt khách và mở rộng thành thư viện nội dung.",
     href: "/dashboard",
     cta: "Xem dashboard",
-    features: ["Quản lý provider trong dashboard", "Cấu hình lượt chat khách", "Nền tảng để thêm user thật", "Phù hợp mở rộng thành CMS lớp học"],
+    features: ["Quản lý provider", "Cấu hình lượt chat khách", "Nền cho CMS lớp học", "Phù hợp nhóm nhiều người"],
   },
 ];
 
 const COMPARISON = [
-  { label: "Hỏi bài bằng văn bản", free: true, plus: true, teacher: true, classroom: true },
-  { label: "Nhận ảnh và file", free: "Giới hạn", plus: true, teacher: true, classroom: true },
-  { label: "Math Studio", free: "Xem thử", plus: true, teacher: true, classroom: true },
-  { label: "Teacher workspace", free: false, plus: false, teacher: true, classroom: true },
-  { label: "Xuất đề và đáp án", free: false, plus: "Cơ bản", teacher: true, classroom: true },
-  { label: "Dashboard quản trị", free: false, plus: false, teacher: false, classroom: true },
-];
+  ["Hỏi bài bằng văn bản", true, true, true, true],
+  ["Nhận ảnh và file", "Giới hạn", true, true, true],
+  ["Math Studio", "Xem thử", true, true, true],
+  ["Teacher workspace", false, false, true, true],
+  ["Xuất đề và đáp án", false, "Cơ bản", true, true],
+  ["Dashboard quản trị", false, false, false, true],
+] as const;
 
 const FAQS = [
   {
     question: "Free có phải gói thật không?",
-    answer: "Free là giới hạn trải nghiệm hiện tại: khách được chat một số lượt trước khi được mời đăng nhập. Số lượt có thể chỉnh ở dashboard admin.",
+    answer: "Free là luồng trải nghiệm hiện tại: khách được chat một số lượt trước khi được mời đăng nhập.",
   },
   {
-    question: "Study Plus và Teacher Studio khác gì nhau?",
-    answer: "Study Plus ưu tiên giải bài và học lại. Teacher Studio ưu tiên soạn giáo án, tạo đề, xuất đáp án và xử lý tài liệu dạy học.",
+    question: "Study và Teacher khác gì nhau?",
+    answer: "Study ưu tiên giải bài và học lại. Teacher ưu tiên soạn giáo án, tạo đề, đáp án và tài liệu dạy học.",
   },
   {
     question: "Khi nào cần Classroom?",
-    answer: "Khi muốn triển khai cho lớp học, trung tâm hoặc nhóm có nhiều tài liệu, nhiều người dùng và cần quản trị provider, quyền truy cập hoặc template riêng.",
+    answer: "Khi bạn triển khai cho lớp, trung tâm hoặc nhóm có nhiều người dùng, nhiều tài liệu và cần dashboard quản trị.",
   },
 ];
 
 export default function PricingPage() {
   return (
-    <main className="min-h-dvh bg-background text-foreground">
+    <main className="min-h-dvh overflow-hidden bg-background text-foreground">
       <MarketingHeader active="pricing" />
 
-      <section className="mx-auto w-full max-w-[1440px] px-5 py-12 md:px-10 md:py-20">
-        <div className="mx-auto max-w-4xl text-center">
-          <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-border/15 bg-card px-4 py-2 text-sm text-muted-foreground shadow-[var(--shadow-sm)]">
-            <Sparkles className="h-4 w-4 text-[hsl(var(--terracotta))]" />
-            Chọn theo việc bạn cần làm, không theo thuật ngữ kỹ thuật
-          </div>
-          <h1 className="text-5xl font-normal leading-[1.04] tracking-normal md:text-7xl">
-            Gói dùng rõ ràng cho học tập và giảng dạy.
+      <section className="relative mx-auto grid w-full max-w-[1200px] gap-10 px-5 pb-16 pt-16 md:px-8 md:pb-24 md:pt-24 lg:grid-cols-[1fr_1fr] lg:items-end">
+        <HeroDecor variant="wave" chips={["Free · 3 lượt", "Study · cá nhân", "Teacher · Studio"]} />
+        <div className={`${styles.fadeUp} relative border-l border-border/20 pl-8`}>
+          <Eyebrow>Pricing</Eyebrow>
+          <h1 className="mt-8 max-w-[11ch] font-serif text-[clamp(3.2rem,8vw,6.5rem)] font-normal leading-[0.96] tracking-[-0.04em]">
+            Chọn theo việc cần làm<span className={`${styles.accentDot} text-[#ff4000]`}>.</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-3xl text-base leading-7 text-muted-foreground md:text-[17px]">
-            Pricing được bố trí giống một trang chọn sản phẩm: thấy ngay mình thuộc nhóm nào, bấm đúng lối vào và hiểu những gì mỗi gói hỗ trợ.
-          </p>
         </div>
+        <div className={`${styles.fadeUp} ${styles.fadeUpDelay2} relative border-l border-border/20 pl-8`}>
+          <p className="max-w-md text-2xl font-semibold leading-tight md:text-3xl">
+            Không ép chọn gói trước khi bạn biết mình cần gì.
+          </p>
+          <p className="mt-5 max-w-md text-base leading-7 text-muted-foreground">
+            Bắt đầu bằng Free để thử. Dùng Study cho học tập hằng ngày. Mở Teacher Studio khi cần soạn tài liệu.
+          </p>
+          <div className="mt-8">
+            <Link className="inline-flex h-11 items-center gap-2 rounded-full bg-black px-5 text-sm font-semibold text-white hover:bg-black/85" href="/newchat">
+              Bắt đầu miễn phí
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
 
-        <div className="mt-12 grid gap-4 lg:grid-cols-4">
+      <section className="border-y border-border/10 bg-card/55 px-5 py-12 md:px-8 md:py-16">
+        <div className={`${styles.staggerGrid} mx-auto grid max-w-[1200px] gap-3 lg:grid-cols-4`}>
           {PLANS.map((plan) => {
             const Icon = plan.icon;
             return (
               <article
                 key={plan.name}
                 className={[
-                  "flex min-h-[520px] flex-col rounded-xl border bg-card p-6 shadow-[var(--shadow-sm)] transition-all hover:border-border/30 hover:shadow-[var(--shadow-md)]",
-                  plan.highlighted
-                    ? "border-[hsl(var(--terracotta))] shadow-[rgba(217,119,87,0.1)_0px_8px_32px_0px]"
-                    : "border-border/15",
+                  styles.cardHover,
+                  "flex min-h-[520px] flex-col rounded-[8px] border p-6",
+                  plan.highlighted ? "border-[#ff4000] bg-[#0e0d0c] text-white" : "border-border/15 bg-card",
                 ].join(" ")}
               >
-                <div className="mb-6 flex items-start justify-between gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-secondary text-[hsl(var(--terracotta))]">
+                <div className="flex items-center justify-between">
+                  <div className={plan.highlighted ? "text-[#ff4000]" : "text-muted-foreground"}>
                     <Icon className="h-5 w-5" />
                   </div>
                   {plan.highlighted && (
-                    <span className="rounded-lg border border-[hsl(var(--terracotta))]/30 bg-[hsl(var(--terracotta))]/10 px-3 py-1 text-xs font-medium text-[hsl(var(--terracotta))]">
-                      Phổ biến
-                    </span>
+                    <span className="rounded-full bg-[#ff4000] px-3 py-1 text-xs font-semibold text-white">Phổ biến</span>
                   )}
                 </div>
 
-                <p className="text-sm text-muted-foreground">{plan.audience}</p>
-                <h2 className="mt-2 font-sans text-2xl font-semibold">{plan.name}</h2>
-                <div className="mt-5">
-                  <p className="text-3xl font-semibold">{plan.price}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{plan.cadence}</p>
+                <p className={["mt-8 text-xs font-semibold uppercase tracking-[0.15em]", plan.highlighted ? "text-white/45" : "text-muted-foreground"].join(" ")}>
+                  {plan.audience}
+                </p>
+                <h2 className="mt-3 text-2xl font-semibold">{plan.name}</h2>
+                <div className="mt-6">
+                  <p className="text-4xl font-semibold">{plan.price}</p>
+                  <p className={["mt-1 text-sm", plan.highlighted ? "text-white/55" : "text-muted-foreground"].join(" ")}>{plan.cadence}</p>
                 </div>
-                <p className="mt-5 text-sm leading-6 text-muted-foreground">{plan.description}</p>
+                <p className={["mt-6 text-sm leading-6", plan.highlighted ? "text-white/70" : "text-muted-foreground"].join(" ")}>
+                  {plan.description}
+                </p>
 
-                <ul className="mt-6 grid gap-3">
+                <ul className="mt-7 grid gap-3">
                   {plan.features.map((feature) => (
-                    <li key={feature} className="flex gap-2 text-sm leading-6 text-foreground">
-                      <BadgeCheck className="mt-1 h-4 w-4 shrink-0 text-[hsl(var(--terracotta))]" />
+                    <li key={feature} className="flex gap-2 text-sm leading-6">
+                      <BadgeCheck className="mt-1 h-4 w-4 shrink-0 text-[#ff4000]" />
                       {feature}
                     </li>
                   ))}
                 </ul>
 
-                <Button asChild className="mt-auto w-full" variant={plan.highlighted ? "default" : "outline"}>
-                  <Link href={plan.href}>
-                    {plan.cta}
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
+                <Link
+                  className={[
+                    "mt-auto inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold transition",
+                    plan.highlighted ? "bg-white text-black hover:bg-white/90" : "border border-border/20 bg-card hover:bg-secondary",
+                  ].join(" ")}
+                  href={plan.href}
+                >
+                  {plan.cta}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
               </article>
             );
           })}
         </div>
       </section>
 
-      <section className="border-y border-border/10 bg-card/45">
-        <div className="mx-auto w-full max-w-[1440px] px-5 py-14 md:px-10 md:py-20">
-          <div className="grid gap-8 lg:grid-cols-[0.75fr_1.25fr] lg:items-start">
-            <div>
-              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-[hsl(var(--terracotta))] text-white">
-                <ShieldCheck className="h-5 w-5" />
-              </div>
-              <h2 className="text-4xl font-normal leading-tight md:text-5xl">So sánh nhanh trước khi chọn.</h2>
-              <p className="mt-4 text-base leading-7 text-muted-foreground">
-                Bảng này dùng ngôn ngữ đời thường để người dùng phổ thông biết nên đi vào chat thường, Teacher Studio hay dashboard.
-              </p>
-            </div>
-
-            <div className="overflow-hidden rounded-xl border border-border/15 bg-card shadow-[var(--shadow-sm)]">
-              <div className="grid grid-cols-[1.5fr_repeat(4,0.8fr)] border-b border-border/15 bg-secondary text-xs font-semibold text-muted-foreground">
-                <div className="px-4 py-3">Tính năng</div>
-                <div className="px-3 py-3 text-center">Free</div>
-                <div className="px-3 py-3 text-center">Study</div>
-                <div className="px-3 py-3 text-center">Teacher</div>
-                <div className="px-3 py-3 text-center">Classroom</div>
-              </div>
-              {COMPARISON.map((row) => (
-                <div key={row.label} className="grid grid-cols-[1.5fr_repeat(4,0.8fr)] border-b border-border/10 text-sm last:border-b-0">
-                  <div className="px-4 py-4 font-medium">{row.label}</div>
-                  <FeatureValue value={row.free} />
-                  <FeatureValue value={row.plus} />
-                  <FeatureValue value={row.teacher} />
-                  <FeatureValue value={row.classroom} />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto grid w-full max-w-[1440px] gap-8 px-5 py-14 md:px-10 md:py-20 lg:grid-cols-[0.75fr_1.25fr]">
+      <section className="mx-auto grid w-full max-w-[1200px] gap-10 px-5 py-16 md:px-8 md:py-24 lg:grid-cols-[0.8fr_1.2fr]">
         <div>
-          <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-[hsl(var(--terracotta))]">
-            <HelpCircle className="h-5 w-5" />
-          </div>
-          <h2 className="text-4xl font-normal leading-tight md:text-5xl">Câu hỏi nhanh.</h2>
+          <Eyebrow>So sánh</Eyebrow>
+          <h2 className="mt-6 font-serif text-4xl font-normal leading-tight tracking-[-0.02em] md:text-6xl">
+            Nhìn một lần là biết nên chọn gì.
+          </h2>
         </div>
-        <div className="grid gap-3">
-          {FAQS.map((faq) => (
-            <article key={faq.question} className="rounded-xl border border-border/15 bg-card p-5 shadow-[var(--shadow-sm)]">
-              <h3 className="font-sans text-lg font-semibold">{faq.question}</h3>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">{faq.answer}</p>
-            </article>
-          ))}
+
+        <div className="overflow-x-auto rounded-[8px] border border-border/15 bg-card">
+          <table className="w-full min-w-[760px] border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-border/15 bg-secondary/70">
+                <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Tính năng
+                </th>
+                {["Free", "Study", "Teacher", "Classroom"].map((label) => (
+                  <th key={label} className="px-4 py-4 text-center text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    {label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {COMPARISON.map(([label, free, study, teacher, classroom]) => (
+                <tr key={label} className="border-b border-border/10 last:border-b-0">
+                  <th className="px-4 py-4 text-left font-medium">{label}</th>
+                  <FeatureValue value={free} />
+                  <FeatureValue value={study} />
+                  <FeatureValue value={teacher} />
+                  <FeatureValue value={classroom} />
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-[1440px] px-5 pb-16 md:px-10 md:pb-24">
-        <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
-          <div className="rounded-2xl border border-border/15 bg-card p-6 shadow-[var(--shadow-sm)] md:p-8">
-            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-[hsl(var(--terracotta))]">
-              Chọn nhanh
-            </p>
-            <h2 className="text-3xl font-normal leading-tight md:text-5xl">
-              Không cần chọn gói ngay.
+      <section className="border-y border-border/10 bg-card/55">
+        <div className="mx-auto grid w-full max-w-[1200px] gap-10 px-5 py-16 md:px-8 md:py-24 lg:grid-cols-[0.8fr_1.2fr]">
+          <div>
+            <Eyebrow>FAQ</Eyebrow>
+            <h2 className="mt-6 font-serif text-4xl font-normal leading-tight tracking-[-0.02em] md:text-6xl">
+              Câu hỏi nhanh.
             </h2>
-            <p className="mt-4 text-base leading-7 text-muted-foreground">
-              Bắt đầu từ việc bạn cần làm hôm nay. Khi nhu cầu rõ hơn, pricing sẽ tự nhiên hơn nhiều.
-            </p>
           </div>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            <Link
-              href="/newchat"
-              className="group flex min-h-[220px] flex-col rounded-2xl border border-border/15 bg-card p-5 shadow-[var(--shadow-sm)] transition-all hover:border-border/30 hover:bg-secondary"
-            >
-              <span className="mb-6 flex h-11 w-11 items-center justify-center rounded-xl bg-secondary text-[hsl(var(--terracotta))] group-hover:bg-card">
-                <BookOpenCheck className="h-5 w-5" />
-              </span>
-              <span className="font-sans text-lg font-semibold">Học sinh</span>
-              <span className="mt-3 text-sm leading-6 text-muted-foreground">
-                Hỏi bài, đọc ảnh, copy lời giải từng phần.
-              </span>
-              <span className="mt-auto flex items-center gap-2 pt-6 text-sm font-medium text-foreground">
-                Vào chat
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </span>
-            </Link>
-
-            <Link
-              href="/teacher"
-              className="group flex min-h-[220px] flex-col rounded-2xl border border-border/15 bg-card p-5 shadow-[var(--shadow-sm)] transition-all hover:border-border/30 hover:bg-secondary"
-            >
-              <span className="mb-6 flex h-11 w-11 items-center justify-center rounded-xl bg-secondary text-[hsl(var(--terracotta))] group-hover:bg-card">
-                <GraduationCap className="h-5 w-5" />
-              </span>
-              <span className="font-sans text-lg font-semibold">Giáo viên</span>
-              <span className="mt-3 text-sm leading-6 text-muted-foreground">
-                Soạn bài, tạo đề, chuẩn bị đáp án và tài liệu.
-              </span>
-              <span className="mt-auto flex items-center gap-2 pt-6 text-sm font-medium text-foreground">
-                Mở studio
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </span>
-            </Link>
-
-            <Link
-              href="/workflow"
-              className="group flex min-h-[220px] flex-col rounded-2xl border border-border/15 bg-card p-5 shadow-[var(--shadow-sm)] transition-all hover:border-border/30 hover:bg-secondary"
-            >
-              <span className="mb-6 flex h-11 w-11 items-center justify-center rounded-xl bg-secondary text-[hsl(var(--terracotta))] group-hover:bg-card">
-                <Building2 className="h-5 w-5" />
-              </span>
-              <span className="font-sans text-lg font-semibold">Lớp học</span>
-              <span className="mt-3 text-sm leading-6 text-muted-foreground">
-                Xem luồng dùng cho nhóm, trung tâm hoặc triển khai nội bộ.
-              </span>
-              <span className="mt-auto flex items-center gap-2 pt-6 text-sm font-medium text-foreground">
-                Xem quy trình
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </span>
-            </Link>
+          <div className={`${styles.staggerGrid} grid gap-3`}>
+            {FAQS.map((faq) => (
+              <article key={faq.question} className={`${styles.cardHover} rounded-[8px] border border-border/15 bg-card p-5`}>
+                <div className="flex items-start gap-3">
+                  <HelpCircle className="mt-1 h-4 w-4 shrink-0 text-[#ff4000]" />
+                  <div>
+                    <h3 className="font-semibold">{faq.question}</h3>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">{faq.answer}</p>
+                  </div>
+                </div>
+              </article>
+            ))}
           </div>
         </div>
       </section>
+
+      <section className="bg-[#0e0d0c] px-5 py-20 text-[#fafafa] md:px-8 md:py-28">
+        <div className="mx-auto grid max-w-[1000px] gap-8 md:grid-cols-[1fr_auto] md:items-center">
+          <div>
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#ff4000]">Chọn nhanh</span>
+            <h2 className="mt-5 max-w-[18ch] font-serif text-[clamp(2.5rem,6vw,5rem)] font-normal leading-[1] tracking-[-0.03em]">
+              Chưa chắc gói nào? Bắt đầu bằng chat.
+            </h2>
+            <p className="mt-5 max-w-xl text-sm leading-6 text-white/60 md:text-base">
+              Cứ thử một bài thật trước. Khi nhu cầu rõ hơn, pricing sẽ tự nhiên hơn nhiều.
+            </p>
+          </div>
+          <Link className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black" href="/newchat">
+            Vào chat
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </section>
+
+      <MarketingFooter />
     </main>
   );
 }
@@ -291,15 +268,28 @@ export default function PricingPage() {
 function FeatureValue({ value }: { value: boolean | string }) {
   if (value === true) {
     return (
-      <div className="flex items-center justify-center px-3 py-4 text-[hsl(var(--terracotta))]">
-        <CheckCircle2 className="h-4 w-4" />
-      </div>
+      <td className="px-4 py-4 text-center text-[#ff4000]">
+        <Check className="mx-auto h-4 w-4" />
+      </td>
     );
   }
 
   if (value === false) {
-    return <div className="px-3 py-4 text-center text-muted-foreground">-</div>;
+    return (
+      <td className="px-4 py-4 text-center text-muted-foreground">
+        <Minus className="mx-auto h-4 w-4" />
+      </td>
+    );
   }
 
-  return <div className="px-3 py-4 text-center text-xs leading-5 text-muted-foreground">{value}</div>;
+  return <td className="px-4 py-4 text-center text-xs leading-5 text-muted-foreground">{value}</td>;
+}
+
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+      <span className="h-1.5 w-1.5 rounded-full bg-[#ff4000]" />
+      {children}
+    </span>
+  );
 }

@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 export const metadata: Metadata = {
   title: "AI Math Chat",
-  description: "AI Chatbot with Math support and Word document export",
+  description: "Hỏi bài, soạn giáo án và xuất tài liệu trong một workspace rõ ràng, dễ dùng.",
 };
 
 export default function RootLayout({
