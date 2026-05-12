@@ -3,13 +3,20 @@
 import { useEffect, useState } from "react";
 import styles from "./landing-intro.module.css";
 
-export function LandingIntro() {
+interface LandingIntroProps {
+  onComplete?: (playing: boolean) => void;
+}
+
+export function LandingIntro({ onComplete }: LandingIntroProps) {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setIsVisible(false), 2400);
+    const timer = window.setTimeout(() => {
+      setIsVisible(false);
+      onComplete?.(false);
+    }, 2400);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [onComplete]);
 
   if (!isVisible) {
     return null;

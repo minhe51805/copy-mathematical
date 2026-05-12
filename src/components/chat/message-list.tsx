@@ -69,6 +69,8 @@ const TEACHER_DOCUMENT_TYPES = [
     id: "lesson-plan",
     label: "Giáo án",
     description: "Mục tiêu, tiến trình dạy học, hoạt động và dặn dò.",
+    actionLabel: "Tạo giáo án",
+    defaultDuration: "45 phút",
     instruction:
       "Soạn giáo án hoàn chỉnh, có mục tiêu, chuẩn bị, tiến trình dạy học, hoạt động giáo viên - học sinh, câu hỏi gợi mở, luyện tập, vận dụng và dặn dò.",
   },
@@ -76,6 +78,8 @@ const TEACHER_DOCUMENT_TYPES = [
     id: "test-paper",
     label: "Đề kiểm tra",
     description: "Câu hỏi, đáp án, thang điểm và ma trận mức độ.",
+    actionLabel: "Tạo đề + đáp án",
+    defaultDuration: "15 phút",
     instruction:
       "Tạo đề kiểm tra có cấu trúc rõ ràng, câu hỏi phân mức độ, đáp án, thang điểm và phần giải thích ngắn cho giáo viên.",
   },
@@ -83,15 +87,86 @@ const TEACHER_DOCUMENT_TYPES = [
     id: "worksheet",
     label: "Phiếu học tập",
     description: "Bài tập phân tầng, đáp án ngắn và lỗi sai thường gặp.",
+    actionLabel: "Tạo phiếu học tập",
+    defaultDuration: "45 phút",
     instruction:
       "Tạo phiếu học tập phân tầng cho học sinh, có phần khởi động, luyện tập, vận dụng, đáp án ngắn và lỗi sai thường gặp.",
+  },
+  {
+    id: "exam-matrix",
+    label: "Ma trận đề",
+    description: "Chuẩn đầu ra, mức độ nhận thức, số câu và điểm.",
+    actionLabel: "Tạo ma trận",
+    defaultDuration: "1 tiết",
+    instruction:
+      "Tạo ma trận đề kiểm tra theo bảng rõ ràng, gồm chủ đề, chuẩn cần đánh giá, mức độ nhận biết - thông hiểu - vận dụng - vận dụng cao, số câu, điểm số và gợi ý dạng câu hỏi.",
+  },
+  {
+    id: "rubric",
+    label: "Rubric chấm điểm",
+    description: "Tiêu chí, thang điểm và mô tả từng mức đạt.",
+    actionLabel: "Tạo rubric",
+    defaultDuration: "1 nhiệm vụ",
+    instruction:
+      "Tạo rubric chấm điểm theo tiêu chí rõ ràng, có thang điểm, mô tả mức đạt, lỗi thường gặp và hướng dẫn phản hồi cho học sinh.",
+  },
+  {
+    id: "slide-outline",
+    label: "Dàn ý slide",
+    description: "Khung slide bài giảng, ví dụ, câu hỏi và hoạt động.",
+    actionLabel: "Tạo dàn ý slide",
+    defaultDuration: "45 phút",
+    instruction:
+      "Tạo dàn ý slide bài giảng theo từng slide, có tiêu đề, nội dung chính, ví dụ minh họa, câu hỏi tương tác, hoạt động lớp và ghi chú lời dẫn cho giáo viên.",
+  },
+  {
+    id: "remedial-plan",
+    label: "Kế hoạch phụ đạo",
+    description: "Lộ trình vá lỗ hổng kiến thức theo nhóm học sinh.",
+    actionLabel: "Tạo kế hoạch",
+    defaultDuration: "2 tuần",
+    instruction:
+      "Tạo kế hoạch phụ đạo có mục tiêu, chẩn đoán lỗi nền, lộ trình buổi học, bài tập ngắn, cách theo dõi tiến bộ và nhiệm vụ về nhà.",
+  },
+  {
+    id: "question-bank",
+    label: "Ngân hàng câu hỏi",
+    description: "Câu hỏi phân mức, đáp án và ghi chú sư phạm.",
+    actionLabel: "Tạo ngân hàng câu hỏi",
+    defaultDuration: "10 câu",
+    instruction:
+      "Tạo ngân hàng câu hỏi phân mức độ, có đáp án, lời giải ngắn, bẫy sai thường gặp và gợi ý dùng câu hỏi trong lớp.",
   },
   {
     id: "document-summary",
     label: "Tóm tắt tài liệu",
     description: "Rút ý chính, chia mục và tạo bản Word dễ đọc.",
+    actionLabel: "Tóm tắt tài liệu",
+    defaultDuration: "Bản 1 trang",
     instruction:
       "Đọc tài liệu hoặc nội dung được cung cấp, rút ý chính, chia mục rõ ràng và biên soạn thành tài liệu Word dễ dùng cho giáo viên.",
+  },
+];
+
+const STUDENT_LEVEL_OPTIONS = ["Yếu nền", "Trung bình", "Khá giỏi", "Ôn thi", "Phân hóa"];
+const OUTPUT_FORMAT_OPTIONS = ["Bản ngắn", "Bản đầy đủ", "Bảng dùng in", "Dàn ý nhanh"];
+
+const TEACHER_CONTEXT_PRESETS = [
+  {
+    label: "Bài mới",
+    text: "Bối cảnh: bài mới, cần mở đầu gợi tò mò, giải thích từng bước và có kiểm tra nhanh cuối bài.",
+  },
+  {
+    label: "Ôn tập",
+    text: "Bối cảnh: tiết ôn tập, cần hệ thống hóa kiến thức, bài tập tăng dần và chỉ ra lỗi sai thường gặp.",
+  },
+  {
+    label: "Kiểm tra",
+    text: "Bối cảnh: chuẩn bị kiểm tra, cần câu hỏi phân mức, đáp án, thang điểm và ma trận ngắn.",
+  },
+  {
+    label: "Phụ đạo",
+    text: "Bối cảnh: phụ đạo học sinh mất gốc, cần giải thích chậm, ví dụ đơn giản và bài luyện ngắn.",
   },
 ];
 
@@ -289,12 +364,15 @@ function TeacherEmptyState({
   const [documentType, setDocumentType] = useState(TEACHER_DOCUMENT_TYPES[0].id);
   const [grade, setGrade] = useState("");
   const [duration, setDuration] = useState("45 phút");
+  const [itemCount, setItemCount] = useState("8-10");
+  const [studentLevel, setStudentLevel] = useState(STUDENT_LEVEL_OPTIONS[1]);
+  const [outputFormat, setOutputFormat] = useState(OUTPUT_FORMAT_OPTIONS[1]);
   const [sourceText, setSourceText] = useState("");
   const primarySuggestions = suggestions.slice(0, 3);
-  const secondaryTools = workspaceTools.slice(0, 5);
+  const secondaryTools = workspaceTools.slice(0, 6);
   const selectedDocument = TEACHER_DOCUMENT_TYPES.find((type) => type.id === documentType) ?? TEACHER_DOCUMENT_TYPES[0];
   const hasDocumentInput = !isBlank(sourceText) || !isBlank(grade) || pendingAttachmentCount > 0;
-  const canCreate = Boolean(onQuickSend) && hasDocumentInput;
+  const canCreate = Boolean(onQuickSend);
 
   const handleCreateDocument = () => {
     if (!onQuickSend) return;
@@ -304,9 +382,16 @@ function TeacherEmptyState({
       typeInstruction: selectedDocument.instruction,
       grade,
       duration,
+      itemCount,
+      studentLevel,
+      outputFormat,
       sourceText,
       hasAttachments: pendingAttachmentCount > 0,
     }));
+  };
+
+  const appendContextPreset = (text: string) => {
+    setSourceText((current) => current.trim() ? `${current.trim()}\n${text}` : text);
   };
 
   return (
@@ -358,23 +443,38 @@ function TeacherEmptyState({
             <section className="rounded-2xl border border-border/15 bg-card p-5 shadow-[var(--shadow-sm)] sm:p-6">
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.12em] text-[hsl(var(--terracotta))]">
-                  Không cần viết prompt
+                  Bộ công cụ không cần prompt
                 </p>
-                <h3 className="mt-2 text-2xl font-semibold">Chỉ cần điền thông tin, AI tự soạn file</h3>
+                <h3 className="mt-2 text-2xl font-semibold">Chọn việc cần làm, app tự dựng brief ẩn</h3>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Chọn loại tài liệu, nhập vài dòng hoặc thêm file. Khi bấm tạo, hệ thống sẽ tự viết yêu cầu chuẩn và mở modal xuất file sau khi AI trả lời.
+                  Thầy cô chỉ chọn công cụ, điền vài thông tin ngắn hoặc thêm file. Hệ thống sẽ tự gửi yêu cầu chuẩn để AI soạn tài liệu có thể xuất Word.
                 </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {TEACHER_CONTEXT_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => appendContextPreset(preset.text)}
+                      className="rounded-full border border-border/15 bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-[hsl(var(--terracotta))]/45 hover:text-foreground"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="mt-5 grid gap-4">
                 <div>
-                  <label className="text-sm font-semibold">1. Muốn tạo tài liệu gì?</label>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <label className="text-sm font-semibold">1. Chọn công cụ</label>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {TEACHER_DOCUMENT_TYPES.map((type) => (
                       <button
                         key={type.id}
                         type="button"
-                        onClick={() => setDocumentType(type.id)}
+                        onClick={() => {
+                          setDocumentType(type.id);
+                          setDuration(type.defaultDuration);
+                        }}
                         className={cn(
                           "rounded-xl border p-4 text-left transition-colors",
                           documentType === type.id
@@ -389,7 +489,7 @@ function TeacherEmptyState({
                   </div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-3">
                   <label className="grid gap-2">
                     <span className="text-sm font-semibold">2. Khối/lớp</span>
                     <input
@@ -400,22 +500,74 @@ function TeacherEmptyState({
                     />
                   </label>
                   <label className="grid gap-2">
-                    <span className="text-sm font-semibold">3. Thời lượng</span>
+                    <span className="text-sm font-semibold">3. Thời lượng / quy mô</span>
                     <input
                       value={duration}
                       onChange={(event) => setDuration(event.target.value)}
-                      placeholder="Ví dụ: 45 phút"
+                      placeholder="Ví dụ: 45 phút, 1 tiết, bản 1 trang"
+                      className="h-11 rounded-[9.6px] border border-border/15 bg-background px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-border/40 focus:ring-2 focus:ring-foreground/10"
+                    />
+                  </label>
+                  <label className="grid gap-2">
+                    <span className="text-sm font-semibold">4. Số câu/hoạt động</span>
+                    <input
+                      value={itemCount}
+                      onChange={(event) => setItemCount(event.target.value)}
+                      placeholder="Ví dụ: 10 câu, 4 hoạt động"
                       className="h-11 rounded-[9.6px] border border-border/15 bg-background px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-border/40 focus:ring-2 focus:ring-foreground/10"
                     />
                   </label>
                 </div>
 
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <div className="grid gap-2">
+                    <span className="text-sm font-semibold">5. Mức học sinh</span>
+                    <div className="flex flex-wrap gap-2">
+                      {STUDENT_LEVEL_OPTIONS.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => setStudentLevel(option)}
+                          className={cn(
+                            "h-9 rounded-full border px-3 text-xs font-medium transition-colors",
+                            studentLevel === option
+                              ? "border-[hsl(var(--terracotta))] bg-[hsl(var(--terracotta))]/10 text-foreground"
+                              : "border-border/15 bg-background text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <span className="text-sm font-semibold">6. Định dạng đầu ra</span>
+                    <div className="flex flex-wrap gap-2">
+                      {OUTPUT_FORMAT_OPTIONS.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => setOutputFormat(option)}
+                          className={cn(
+                            "h-9 rounded-full border px-3 text-xs font-medium transition-colors",
+                            outputFormat === option
+                              ? "border-[hsl(var(--terracotta))] bg-[hsl(var(--terracotta))]/10 text-foreground"
+                              : "border-border/15 bg-background text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
                 <label className="grid gap-2">
-                  <span className="text-sm font-semibold">4. Chủ đề hoặc nội dung cần xử lý</span>
+                  <span className="text-sm font-semibold">7. Chủ đề hoặc nội dung cần xử lý</span>
                   <textarea
                     value={sourceText}
                     onChange={(event) => setSourceText(event.target.value)}
-                    placeholder="Ví dụ: Soạn giáo án bài tích phân từng phần. Có ví dụ, bài tập phân tầng và đáp án..."
+                    placeholder="Ví dụ: Tích phân từng phần lớp 12, cần ví dụ từng bước, bài tập phân tầng và đáp án..."
                     rows={6}
                     className="min-h-36 resize-none rounded-xl border border-border/15 bg-background px-4 py-3 text-sm leading-6 text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-border/40 focus:ring-2 focus:ring-foreground/10"
                   />
@@ -431,7 +583,9 @@ function TeacherEmptyState({
                         {pendingAttachmentCount > 0 ? `Đã thêm ${pendingAttachmentCount} file` : "Có thể thêm file kèm theo"}
                       </p>
                       <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        Nếu có PDF, Word, Excel hoặc ảnh đề mẫu, thêm vào đây để AI đọc cùng nội dung đã nhập.
+                        {hasDocumentInput
+                          ? "AI sẽ đọc file và nội dung đã nhập trước khi soạn bản nháp."
+                          : "Có thể bấm tạo ngay để AI hỏi phần còn thiếu, hoặc thêm file/chủ đề để ra bản nháp đầy đủ hơn."}
                       </p>
                     </div>
                   </div>
@@ -448,7 +602,7 @@ function TeacherEmptyState({
                     disabled={!onQuickSend || !canCreate}
                     onClick={handleCreateDocument}
                   >
-                    Tạo bản Word
+                    {selectedDocument.actionLabel}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                   <Button
@@ -465,69 +619,11 @@ function TeacherEmptyState({
             </section>
 
             <aside className="grid content-start gap-4">
-            <button
-              type="button"
-              onClick={openFilePicker}
-              className="group rounded-2xl border border-dashed border-[hsl(var(--terracotta))]/45 bg-[hsl(var(--terracotta))]/10 p-5 text-left transition-colors hover:bg-[hsl(var(--terracotta))]/15"
-            >
-              <div className="flex items-start gap-4">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-card text-[hsl(var(--terracotta))] shadow-[var(--shadow-sm)]">
-                  <UploadCloud className="h-5 w-5" />
-                </span>
-                <span>
-                  <span className="block text-base font-semibold">Thêm tài liệu có sẵn</span>
-                  <span className="mt-1 block text-sm leading-6 text-muted-foreground">
-                    Kéo file vào trang hoặc bấm để chọn PDF, Word, Excel, ảnh bài mẫu.
-                  </span>
-                  <span className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-[hsl(var(--terracotta))]">
-                    Chọn file
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                  </span>
-                </span>
-              </div>
-            </button>
-
-            <section className="rounded-2xl border border-border/15 bg-card p-5 shadow-[var(--shadow-sm)]">
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-[hsl(var(--terracotta))]">
-                  <MousePointerClick className="h-4 w-4" />
-                </span>
-                <div>
-                  <h3 className="text-base font-semibold">Luồng làm việc</h3>
-                  <p className="text-xs text-muted-foreground">Rõ từng bước, không cần tự nhớ mẫu.</p>
-                </div>
-              </div>
-              <div className="mt-4 space-y-3">
-                {setupItems.map((item, index) => (
-                  <div key={item} className="flex gap-3">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-[hsl(var(--terracotta))]">
-                      {index + 1}
-                    </span>
-                    <p className="pt-0.5 text-sm leading-6 text-muted-foreground">{item}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-border/15 bg-card p-5 shadow-[var(--shadow-sm)]">
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-[hsl(var(--terracotta))]">
-                  <BookOpenCheck className="h-4 w-4" />
-                </span>
-                <div>
-                  <h3 className="text-base font-semibold">Trước khi dùng cho lớp</h3>
-                  <p className="text-xs text-muted-foreground">Các điểm nên rà lại nhanh.</p>
-                </div>
-              </div>
-              <ul className="mt-4 space-y-2">
-                {reviewChecklist.slice(0, 3).map((item) => (
-                  <li key={item} className="flex gap-2 text-sm leading-6 text-muted-foreground">
-                    <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[hsl(var(--terracotta))]" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
+              <TeacherSideHelp
+                setupItems={setupItems}
+                reviewChecklist={reviewChecklist}
+                pendingAttachmentCount={pendingAttachmentCount}
+              />
             </aside>
           </div>
         ) : (
@@ -710,6 +806,9 @@ function buildTeacherDocumentPrompt({
   typeInstruction,
   grade,
   duration,
+  itemCount,
+  studentLevel,
+  outputFormat,
   sourceText,
   hasAttachments,
 }: {
@@ -717,16 +816,23 @@ function buildTeacherDocumentPrompt({
   typeInstruction: string;
   grade: string;
   duration: string;
+  itemCount: string;
+  studentLevel: string;
+  outputFormat: string;
   sourceText: string;
   hasAttachments: boolean;
 }) {
   return [
-    `Hãy tạo ${typeLabel} và chuẩn bị xuất file Word cho giáo viên.`,
+    `Hãy tạo ${typeLabel} và chuẩn bị xuất file Word cho giáo viên. Đây là yêu cầu được tạo từ công cụ nhanh, giáo viên không tự viết prompt.`,
     typeInstruction,
     grade.trim() ? `Khối/lớp: ${grade.trim()}.` : "Nếu thiếu khối/lớp, hãy chọn cách trình bày trung tính và ghi rõ phần cần giáo viên xác nhận.",
     duration.trim() ? `Thời lượng: ${duration.trim()}.` : "",
+    itemCount.trim() ? `Số câu hoặc số hoạt động mong muốn: ${itemCount.trim()}.` : "",
+    studentLevel.trim() ? `Mức học sinh: ${studentLevel.trim()}.` : "",
+    outputFormat.trim() ? `Định dạng đầu ra: ${outputFormat.trim()}.` : "",
     hasAttachments ? "Có file đính kèm trong tin nhắn này. Hãy đọc file và ưu tiên nội dung trong file." : "",
     sourceText.trim() ? `Nội dung/chủ đề do giáo viên nhập:\n${sourceText.trim()}` : "",
+    "Nếu thiếu dữ liệu quan trọng, chỉ hỏi lại tối đa 3 câu ngắn. Nếu vẫn có thể làm bản nháp hợp lý, hãy tự ghi giả định ở đầu tài liệu rồi tiếp tục soạn.",
     "Yêu cầu trình bày: viết bằng tiếng Việt, chia mục rõ ràng, ưu tiên dùng được ngay trong lớp, có phần giáo viên cần kiểm tra lại nếu thiếu dữ liệu.",
     "Yêu cầu xuất file: sau khi tạo nội dung, hãy trình bày như một bản tài liệu hoàn chỉnh để app mở modal xuất Word.",
   ].filter(Boolean).join("\n\n");

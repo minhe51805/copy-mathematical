@@ -15,6 +15,7 @@ import { HeroPromptBox } from "@/components/landing/hero-prompt-box";
 import { LandingIntro } from "@/components/landing/landing-intro";
 import { MarketingFooter } from "@/components/landing/marketing-footer";
 import { MarketingHeader } from "@/components/landing/marketing-header";
+import { WorkflowShowcase } from "@/components/landing/workflow-showcase";
 
 export const metadata: Metadata = {
   title: "AI Math Chat",
@@ -64,84 +65,6 @@ const WORKFLOW_STEPS = [
     icon: Download,
     title: "Xuất file khi thật sự cần",
     description: "Mở modal xuất Word/PDF, chọn phiên bản phù hợp rồi tải về cho lớp học hoặc cá nhân.",
-  },
-];
-
-const PERSONA_STEPS = [
-  {
-    role: "Học sinh",
-    headline: "Bắt đầu mỗi buổi học với hướng đi rõ ràng.",
-    subtitle: "Không cần học prompt. Không cần training. Chỉ cần biết bước kế tiếp.",
-    bullets: [
-      {
-        title: "“Biết phải làm gì tiếp.”",
-        body: "Một danh sách câu hỏi rõ — không phải mở 3 tab. Hướng dẫn từng bước theo đúng dạng bài, không phải tìm lại mẫu giải cũ.",
-      },
-      {
-        title: "Bám sát cách bạn đang học.",
-        body: "Ghi lại cách giải hợp với bạn — không cần viết dài. Mở lại công thức khi bí. Hỏi tiếp mà không phải nhắc lại đề.",
-      },
-    ],
-  },
-  {
-    role: "Phụ huynh",
-    headline: "Hiểu đủ để hướng dẫn con — không cần là dân toán.",
-    subtitle: "Đưa bài vào, đọc tóm tắt, mở giải thích khi cần.",
-    bullets: [
-      {
-        title: "Đọc 30 giây, hiểu được.",
-        body: "Tóm tắt ngắn ở đầu mỗi câu trả lời. Phần giải thích bung ra khi muốn xem chi tiết với con.",
-      },
-      {
-        title: "Lưu lại để hỏi tiếp.",
-        body: "Mọi hội thoại được giữ trong workspace. Mở lại sau bữa tối, hỏi tiếp đúng chỗ vừa dừng.",
-      },
-    ],
-  },
-  {
-    role: "Giáo viên",
-    headline: "Soạn giáo án và đề kiểm tra như cách bạn làm thật.",
-    subtitle: "Teacher Studio gom file, chủ đề và prompt gợi ý vào một chỗ.",
-    bullets: [
-      {
-        title: "Không phải template cứng.",
-        body: "Mô tả ngắn ý đồ dạy — AI dựng cấu trúc bài. Sửa từng phần, không phải gõ lại cả file.",
-      },
-      {
-        title: "Xuất Word/PDF nhiều phiên bản.",
-        body: "Một lệnh ra cả bản đề, bản đáp án, bản tách câu. Copy riêng từng câu cho nhóm WhatsApp.",
-      },
-    ],
-  },
-  {
-    role: "Tổ chuyên môn",
-    headline: "Giữ chất lượng nội dung đồng nhất giữa các lớp.",
-    subtitle: "Một workspace cho cả tổ — không còn lạc file giữa Zalo.",
-    bullets: [
-      {
-        title: "Một nguồn nội dung.",
-        body: "Mọi đề, giáo án, đáp án nằm trong cùng một dashboard, có thể chia theo khối/môn.",
-      },
-      {
-        title: "Tái sử dụng nhanh.",
-        body: "Lấy lại đề năm trước, AI điều chỉnh độ khó hoặc đổi số liệu trong vài giây.",
-      },
-    ],
-  },
-  {
-    role: "Nhà trường",
-    headline: "Triển khai cho cả trường mà không cần IT.",
-    subtitle: "Một tài khoản admin, ba lớp người dùng, lộ trình rõ.",
-    bullets: [
-      {
-        title: "Bật là chạy.",
-        body: "Không cần cài máy chủ. Đăng nhập bằng Google, phân vai trò trong dashboard.",
-      },
-      {
-        title: "Kiểm soát chi phí.",
-        body: "Quản lý lượt dùng theo giáo viên hoặc lớp. Xem báo cáo lượt tạo tài liệu mỗi tuần.",
-      },
-    ],
   },
 ];
 
@@ -295,7 +218,7 @@ export default function LandingPage() {
       <MarketingHeader />
 
       {/* HERO ---------------------------------------------------------- */}
-      <section className="mx-auto flex w-full max-w-[1200px] flex-col items-center px-5 pb-12 pt-14 text-center md:pt-20">
+      <section className="mx-auto flex w-full max-w-[1200px] flex-col items-center px-5 pb-8 pt-14 text-center md:pb-6 md:pt-20">
         <Eyebrow>Một workspace cho toán học</Eyebrow>
 
         <h1
@@ -328,29 +251,29 @@ export default function LandingPage() {
       </section>
 
       {/* HERO IMAGE / PREVIEW ------------------------------------------ */}
-      <section className="relative px-5 pb-20 md:pb-28">
+      <section className="relative mt-4 px-5 pb-20 md:mt-4 md:pb-28">
         <div
           className="mx-auto max-w-[1200px] overflow-hidden rounded-[28px] border border-border/15 bg-card shadow-[var(--shadow-md)]"
           style={{
             WebkitMaskImage:
-              "linear-gradient(to bottom, transparent 0%, #000 14%, #000 86%, transparent 100%)",
+              "linear-gradient(to bottom, transparent 0%, #000 7%, #000 88%, transparent 100%)",
             maskImage:
-              "linear-gradient(to bottom, transparent 0%, #000 14%, #000 86%, transparent 100%)",
+              "linear-gradient(to bottom, transparent 0%, #000 7%, #000 88%, transparent 100%)",
           }}
-        >
-          <div className="relative aspect-[16/9] w-full bg-[#1F1E1D]">
-            <Image
-              src="/product-chat-screenshot.png"
-              alt="Ảnh giao diện chat AI Math"
-              fill
-              priority
-              sizes="(max-width: 1200px) 100vw, 1200px"
-              className="object-cover object-top opacity-95"
-            />
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#1F1E1D]/30" />
-          </div>
+      >
+        <div className="relative aspect-[16/9] w-full bg-[#d7ebfb]">
+          <Image
+            src="/home-hero-collage-v3.png"
+            alt="Bộ ảnh nhiều màn hình AI Math Chat gồm chat, pricing, workflow và teacher studio"
+            fill
+            priority
+            sizes="(max-width: 1200px) 100vw, 1200px"
+            className="object-cover object-center opacity-100"
+          />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white/8" />
         </div>
-      </section>
+      </div>
+    </section>
 
       {/* OLD WAY vs NEW WAY -------------------------------------------- */}
       <section className="mx-auto w-full max-w-[1200px] px-5 pb-20 md:pb-28">
@@ -456,58 +379,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* PERSONA STEPPER ----------------------------------------------- */}
-      <section className="mx-auto w-full max-w-[1200px] px-5 py-16 md:py-24">
-        <div className="mb-12 grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
-          <div>
-            <Eyebrow>Câu chuyện của bạn</Eyebrow>
-            <h2 className="mt-6 font-serif text-3xl font-normal leading-tight tracking-tight md:text-5xl">
-              Bắt đầu một ngày với hướng đi rõ ràng.
-            </h2>
-          </div>
-          <p className="text-base leading-7 text-muted-foreground lg:max-w-md">
-            5 vai trò, 5 cách dùng AI Math khác nhau — nhưng cùng một workspace. Cuộn để xem từng vai trò.
-          </p>
-        </div>
-
-        <div className="-mx-5 overflow-x-auto px-5 pb-2">
-          <div className="grid auto-cols-[minmax(300px,1fr)] grid-flow-col gap-4 md:auto-cols-[minmax(360px,1fr)]">
-            {PERSONA_STEPS.map((step, index) => (
-              <article
-                key={step.role}
-                className="flex flex-col rounded-3xl border border-border/15 bg-card p-7 transition-all hover:border-border/30 hover:shadow-[var(--shadow-sm)]"
-              >
-                <div className="flex items-center justify-between text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                  <span style={{ color: ACCENT }}>{step.role}</span>
-                  <span className="font-mono">
-                    {String(index + 1).padStart(2, "0")} <span className="opacity-40">/ {String(PERSONA_STEPS.length).padStart(2, "0")}</span>
-                  </span>
-                </div>
-
-                <h3 className="mt-6 font-serif text-2xl font-normal leading-snug">
-                  {step.headline}
-                </h3>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">{step.subtitle}</p>
-
-                <div className="mt-7 grid gap-5 border-t border-border/15 pt-6">
-                  {step.bullets.map((bullet) => (
-                    <div key={bullet.title}>
-                      <h4 className="font-sans text-[13px] font-semibold uppercase tracking-[0.12em]">
-                        {bullet.title}
-                      </h4>
-                      <p className="mt-2 text-sm leading-6 text-muted-foreground">{bullet.body}</p>
-                    </div>
-                  ))}
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-
-        <p className="mt-6 text-center text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
-          ← Kéo để xem cả 5 vai trò →
-        </p>
-      </section>
+      {/* WORKFLOW SHOWCASE --------------------------------------------- */}
+      <WorkflowShowcase />
 
       {/* FEATURE BLOCKS ------------------------------------------------ */}
       <section className="border-y border-border/10 bg-card/45">

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeInit } from "@/components/landing/theme-init";
+import { ThemeIntroController } from "@/components/layout/theme-intro-controller";
 
 export const metadata: Metadata = {
   title: "AI Math Chat",
@@ -16,6 +18,8 @@ export default function RootLayout({
   return (
     <html lang="vi" suppressHydrationWarning>
       <body className="antialiased">
+        <ThemeInit />
+        <ThemeIntroController />
         <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>

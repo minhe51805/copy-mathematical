@@ -81,7 +81,7 @@ export const ASSISTANT_MODES: Record<AssistantModeId, AssistantModeConfig> = {
       subtitle: "Tạo giáo án, phiếu học tập, đề kiểm tra từ chủ đề hoặc file có sẵn.",
       emptyTitle: "Thầy cô muốn tạo tài liệu nào hôm nay?",
       emptySubtitle:
-        "Chọn một mẫu có sẵn hoặc kéo file vào ô chat. Nếu còn thiếu lớp, thời lượng hay mức độ học sinh, AI sẽ hỏi lại trước khi soạn.",
+        "Chọn công cụ có sẵn, điền vài dòng hoặc kéo file vào ô chat. App tự dựng yêu cầu phía sau để thầy cô không cần viết prompt.",
       inputPlaceholder: "Ví dụ: Soạn giáo án tích phân lớp 12 trong 45 phút...",
       setupTitle: "Bắt đầu trong 3 bước",
       setupItems: [
@@ -89,7 +89,7 @@ export const ASSISTANT_MODES: Record<AssistantModeId, AssistantModeConfig> = {
         "Thêm chủ đề, khối lớp hoặc kéo file vào chat.",
         "Duyệt bản nháp, yêu cầu sửa rồi xuất Word/PDF khi cần.",
       ],
-      toolTitle: "Việc thường dùng",
+      toolTitle: "Công cụ nhanh",
       tools: [
         {
           label: "Giáo án 45 phút",
@@ -110,6 +110,36 @@ export const ASSISTANT_MODES: Record<AssistantModeId, AssistantModeConfig> = {
             "Tạo một bài kiểm tra nhanh 15 phút. Có ma trận năng lực, 8 câu trắc nghiệm, 2 câu tự luận, đáp án, thang điểm và gợi ý chấm.",
         },
         {
+          label: "Ma trận đề",
+          description: "Bảng mức độ, số câu, điểm số và dạng câu hỏi.",
+          prompt:
+            "Tạo ma trận đề kiểm tra cho chủ đề này. Chia theo nội dung, chuẩn cần đánh giá, mức nhận biết - thông hiểu - vận dụng - vận dụng cao, số câu, điểm số và gợi ý dạng câu hỏi.",
+        },
+        {
+          label: "Rubric chấm điểm",
+          description: "Tiêu chí, mức đạt, điểm số và gợi ý phản hồi.",
+          prompt:
+            "Tạo rubric chấm điểm cho nhiệm vụ học tập này. Có tiêu chí, thang điểm, mô tả từng mức đạt, lỗi thường gặp và mẫu nhận xét ngắn cho học sinh.",
+        },
+        {
+          label: "Dàn ý slide",
+          description: "Khung slide bài giảng kèm câu hỏi tương tác.",
+          prompt:
+            "Tạo dàn ý slide bài giảng cho chủ đề này. Mỗi slide có tiêu đề, ý chính, ví dụ, câu hỏi tương tác và ghi chú lời dẫn cho giáo viên.",
+        },
+        {
+          label: "Kế hoạch phụ đạo",
+          description: "Lộ trình vá kiến thức nền và theo dõi tiến bộ.",
+          prompt:
+            "Tạo kế hoạch phụ đạo cho nhóm học sinh đang hổng kiến thức ở chủ đề này. Có chẩn đoán lỗi nền, mục tiêu từng buổi, bài luyện ngắn, cách kiểm tra tiến bộ và bài tập về nhà.",
+        },
+        {
+          label: "Ngân hàng câu hỏi",
+          description: "Câu hỏi phân mức, đáp án và bẫy sai thường gặp.",
+          prompt:
+            "Tạo ngân hàng câu hỏi cho chủ đề này. Chia theo mức độ, có đáp án, lời giải ngắn, bẫy sai thường gặp và gợi ý dùng câu hỏi trong lớp.",
+        },
+        {
           label: "Đọc file tài liệu",
           description: "Rút ý chính từ file và đề xuất cách biến thành bài dạy.",
           prompt:
@@ -128,16 +158,16 @@ export const ASSISTANT_MODES: Record<AssistantModeId, AssistantModeConfig> = {
           text: "Soạn giáo án 45 phút cho chủ đề hàm số bậc hai lớp 10. Có mục tiêu, hoạt động mở bài, luyện tập, vận dụng và dặn dò.",
         },
         {
-          label: "Tạo đề kiểm tra",
-          text: "Tạo đề kiểm tra 15 phút về tích phân cơ bản. Có câu dễ, trung bình, khó, đáp án và thang điểm.",
+          label: "Đề + ma trận",
+          text: "Tạo đề kiểm tra 15 phút về tích phân cơ bản. Có ma trận mức độ, câu dễ - trung bình - khó, đáp án và thang điểm.",
         },
         {
-          label: "Biến file thành phiếu học tập",
+          label: "Phiếu từ file",
           text: "Đọc file tôi đưa lên và chuyển thành phiếu học tập phân tầng cho học sinh, có đáp án ngắn ở cuối.",
         },
         {
-          label: "Tra cứu nguồn",
-          text: "Tìm thêm nguồn tham khảo mới và đáng tin cậy cho chủ đề này. Tổng hợp ngắn gọn, gắn trích dẫn nguồn và đề xuất cách đưa vào giáo án.",
+          label: "Rubric nhanh",
+          text: "Tạo rubric chấm điểm cho bài thuyết trình nhóm về ứng dụng đạo hàm. Có tiêu chí, mức đạt, điểm số và nhận xét mẫu.",
         },
       ],
       reviewChecklist: [
@@ -148,6 +178,6 @@ export const ASSISTANT_MODES: Record<AssistantModeId, AssistantModeConfig> = {
       ],
     },
     systemPrompt:
-      "Bạn là trợ lý sư phạm cho giáo viên Toán. Luôn trả lời bằng tiếng Việt, trình bày có cấu trúc, ưu tiên mục tiêu bài học, hoạt động dạy học, câu hỏi gợi mở, bài tập phân tầng, đáp án và lưu ý sư phạm. Nếu thiếu khối lớp, thời lượng, chuẩn chương trình hoặc mức độ học sinh, hãy hỏi lại ngắn gọn trước khi soạn. Không bịa nguồn chương trình; đánh dấu phần cần giáo viên xác nhận.",
+      "Bạn là trợ lý sư phạm cho giáo viên Toán. Luôn trả lời bằng tiếng Việt, trình bày có cấu trúc, ưu tiên mục tiêu bài học, hoạt động dạy học, câu hỏi gợi mở, bài tập phân tầng, đáp án và lưu ý sư phạm. Khi người dùng chọn công cụ nhanh, đừng bắt họ tự viết prompt; nếu thiếu khối lớp, thời lượng, chuẩn chương trình hoặc mức độ học sinh, hãy hỏi lại tối đa 3 câu ngắn hoặc tự ghi giả định hợp lý trước khi soạn bản nháp. Không bịa nguồn chương trình; đánh dấu phần cần giáo viên xác nhận.",
   },
 };
