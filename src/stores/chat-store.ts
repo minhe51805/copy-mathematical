@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { ChatStore, Message, Conversation, WorkspaceId } from "@/types";
-import { generateId, sanitizeAssistantContent } from "@/lib/math-utils";
+import { generateId } from "@/lib/math-utils";
 
 const STORAGE_KEY = "math-chat-conversations";
 
@@ -12,15 +12,7 @@ function loadFromStorage(workspaceId: WorkspaceId): Conversation[] {
   if (typeof window === "undefined") return [];
   try {
     const data = localStorage.getItem(getStorageKey(workspaceId));
-    const conversations = data ? JSON.parse(data) as Conversation[] : [];
-    return conversations.map((conversation) => ({
-      ...conversation,
-      messages: conversation.messages.map((message) =>
-        message.role === "assistant"
-          ? { ...message, content: sanitizeAssistantContent(message.content) }
-          : message
-      ),
-    }));
+    return data ? JSON.parse(data) as Conversation[] : [];
   } catch {
     return [];
   }

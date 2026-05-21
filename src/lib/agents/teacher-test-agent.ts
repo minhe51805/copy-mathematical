@@ -146,21 +146,66 @@ function extractNumberBeforeKeyword(content: string, keywords: string[]) {
 }
 
 function inferLastProgress(content: string, plan: TeacherTestAgentPlan) {
-  const normalized = normalizeForIntent(content);
-  const setMatches = Array.from(normalized.matchAll(/(?:de|bo)\s*(\d+)/g));
-  const questionMatches = Array.from(normalized.matchAll(/(?:cau|bai)\s*(\d+)/g));
-  const setNumbers = setMatches
-    .map((match) => Number(match[1]))
-    .filter((value) => Number.isFinite(value) && value > 0 && value <= plan.requestedSets);
-  const questionNumbers = questionMatches
-    .map((match) => Number(match[1]))
-    .filter((value) => Number.isFinite(value) && value > 0);
+  const lines = content.split('\n');
+  let lastQuestionNumber = 0;
+  let setNumber = 1;
 
-  const setNumber = setNumbers.length ? setNumbers[setNumbers.length - 1] : 1;
-  const rawLastQuestion = questionNumbers.length ? Math.max(...questionNumbers) : 0;
-  const lastQuestionNumber = rawLastQuestion > plan.questionsPerSet
-    ? ((rawLastQuestion - 1) % plan.questionsPerSet) + 1
-    : rawLastQuestion;
+  const questionRegex = /^###\s*(?:câu|cau|bài|bai|câu số|cau so)?\s*(\d+)/i;
+  const setRegex = /^##\s*(?:đề|de|bộ|bo)\s*(\d+)/i;
+
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    if (lastQuestionNumber === 0) {
+      const qMatch = line.match(questionRegex);
+      if (qMatch) {
+        const qNum = Number(qMatch[1]);
+        if (Number.isFinite(qNum) && qNum > 0) {
+          lastQuestionNumber = qNum;
+        }
+      }
+    }
+
+    const sMatch = line.match(setRegex);
+    if (sMatch) {
+      const sNum = Number(sMatch[1]);
+      if (Number.isFinite(sNum) && sNum > 0 && sNum <= plan.requestedSets) {
+        setNumber = sNum;
+        if (lastQuestionNumber > 0) {
+          break;
+        }
+      }
+    }
+  }
+
+  // Fallback if no structured headings are found
+  if (lastQuestionNumber === 0 || setNumber === 1) {
+    const normalized = normalizeForIntent(content);
+    if (setNumber === 1) {
+      const setMatches = Array.from(normalized.matchAll(/(?:de|bo)\s*(\d+)/g));
+      const setNumbers = setMatches
+        .map((match) => Number(match[1]))
+        .filter((value) => Number.isFinite(value) && value > 0 && value <= plan.requestedSets);
+      if (setNumbers.length) {
+        setNumber = setNumbers[setNumbers.length - 1];
+      }
+    }
+
+    if (lastQuestionNumber === 0) {
+      const questionMatches = Array.from(normalized.matchAll(/(?:cau|bai)\s*(\d+)/g));
+      const questionNumbers = questionMatches
+        .map((match) => Number(match[1]))
+        .filter((value) => Number.isFinite(value) && value > 0);
+      if (questionNumbers.length) {
+        lastQuestionNumber = Math.max(...questionNumbers);
+      }
+    }
+  }
+
+  if (lastQuestionNumber > plan.questionsPerSet) {
+    lastQuestionNumber = ((lastQuestionNumber - 1) % plan.questionsPerSet) + 1;
+  }
 
   return {
     setNumber,

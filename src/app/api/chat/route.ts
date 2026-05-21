@@ -19,7 +19,8 @@ import {
   formatTeacherTestAgentPrompt,
   formatTeacherTestContinuationPrompt,
 } from "@/lib/agents/teacher-test-agent";
-import { SYSTEM_PROMPT } from "@/lib/prompts";
+import { SYSTEM_PROMPT, THINKING_PROMPT, NO_THINKING_PROMPT } from "@/lib/prompts";
+import { evaluateQueryComplexitySemantic } from "@/lib/complexity";
 import { createCorsPreflightResponse, getCorsHeaders } from "@/lib/cors";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -117,18 +118,22 @@ function createTextStreamResponse(text: string, corsHeaders: HeadersInit) {
 
 async function createGatewayText(messages: IncomingMessage[], mode?: AssistantModeId) {
   const modeConfig = mode ? ASSISTANT_MODES[mode] : undefined;
-  const latestHasImages = hasImageAttachments(messages[messages.length - 1]?.attachments);
+  const latestMessage = messages[messages.length - 1];
+  const latestHasImages = hasImageAttachments(latestMessage?.attachments);
   const preferredProvider = latestHasImages ? "gemini-aistudio" : undefined;
   const model = latestHasImages ? getAIModel("chat", "gemini-aistudio") : getAIModel("chat");
   const config = getOpenAIConfigForLog();
   const gatewayMessages = prepareGatewayMessages(messages, mode);
   const researchContext = await createTeacherResearchContext({ mode, messages });
-  const latestContent = messages[messages.length - 1]?.content;
+  const latestContent = latestMessage?.content;
   const isContinuation = isContinuationRequest(latestContent);
   const isLargeGeneration = hasLargeGenerationRequest(latestContent);
   const responseStyleInstruction = buildResponseStyleInstruction(latestContent);
 
+  const isComplex = latestMessage ? await evaluateQueryComplexitySemantic(latestMessage.content, latestMessage.attachments) : false;
+
   console.log("Using AI model:", model);
+  console.log("Evaluated query complexity: complex =", isComplex);
   if (latestHasImages) {
     console.log("Image request detected: preferring Gemini AI Studio before gateway fallback.");
   }
@@ -145,7 +150,7 @@ async function createGatewayText(messages: IncomingMessage[], mode?: AssistantMo
   return generateAIText({
     purpose: "chat",
     preferredProvider,
-    system: getSystemPrompt(mode, researchContext, responseStyleInstruction),
+    system: getSystemPrompt(isComplex, mode, researchContext, responseStyleInstruction),
     messages: gatewayMessages.map(toAIChatMessage),
     temperature: modeConfig?.model.temperature ?? 0.7,
     maxOutputTokens: isLargeGeneration || isContinuation
@@ -295,6 +300,22 @@ function isContinuationRequest(content: string | undefined) {
 }
 
 function inferLastQuestionNumber(content: string) {
+  const lines = content.split('\n');
+  const questionRegex = /^###\s*(?:câu|cau|bài|bai|câu số|cau so)?\s*(\d+)/i;
+  
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    const qMatch = line.match(questionRegex);
+    if (qMatch) {
+      const qNum = Number(qMatch[1]);
+      if (Number.isFinite(qNum) && qNum > 0) {
+        return qNum;
+      }
+    }
+  }
+
   const normalized = normalizeForIntent(content);
   const matches = Array.from(normalized.matchAll(/(?:cau|bai)\s*(\d+)/g));
   const numbers = matches
@@ -408,6 +429,7 @@ function normalizeForIntent(value: string) {
 }
 
 function getSystemPrompt(
+  isComplex: boolean,
   mode?: AssistantModeId,
   researchContext?: TeacherResearchContext | null,
   responseStyleInstruction?: string
@@ -422,8 +444,10 @@ function getSystemPrompt(
     ].join(" ")
     : "";
 
+  const complexityInstruction = isComplex ? THINKING_PROMPT : NO_THINKING_PROMPT;
+
   if (!mode || !ASSISTANT_MODES[mode]) {
-    return [SYSTEM_PROMPT, researchPrompt, researchInstruction].filter(Boolean).join("\n\n");
+    return [SYSTEM_PROMPT, complexityInstruction, researchPrompt, researchInstruction].filter(Boolean).join("\n\n");
   }
 
   return [
@@ -431,6 +455,7 @@ function getSystemPrompt(
     "",
     `Workspace preset: ${ASSISTANT_MODES[mode].badge}`,
     ASSISTANT_MODES[mode].systemPrompt,
+    complexityInstruction,
     researchPrompt ? `\n${researchPrompt}` : "",
     researchInstruction ? `\n${researchInstruction}` : "",
     responseStyleInstruction ? `\n${responseStyleInstruction}` : "",

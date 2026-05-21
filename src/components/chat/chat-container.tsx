@@ -65,11 +65,14 @@ export function ChatContainer({ modeConfig }: ChatContainerProps) {
         ? buildLocalDocumentCopyResponse(userMessage, attachments)
         : null;
       const shouldUsePreviousAnswer = isExportOnlyRequest(userMessage) && previousAssistantContent?.trim();
-      const contentToExport = shouldUsePreviousAnswer
+      let contentToExport = shouldUsePreviousAnswer
         ? previousAssistantContent
         : fullDocumentCopy ?? assistantContent;
 
       if (contentToExport?.trim()) {
+        // Strip the thinking process block from the exported file content
+        contentToExport = contentToExport.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
         const nextExportSource = {
           content: contentToExport,
           request: userMessage,

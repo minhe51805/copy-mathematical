@@ -123,21 +123,23 @@ export function useChat(options?: SendMessageOptions) {
 
       setLoading(true);
 
+      let assistantMessageId: string | null = null;
+
       try {
         const localDocumentResponse = buildLocalDocumentCopyResponse(userMessage.content, attachments);
 
         if (localDocumentResponse) {
-          const assistantMessageId = generateId();
+          const id = generateId();
           const assistantContent = sanitizeAssistantContent(localDocumentResponse);
           addMessage({
-            id: assistantMessageId,
+            id: id,
             role: "assistant",
             content: assistantContent,
             timestamp: Date.now(),
           });
           saveConversation();
           onFinish?.({
-            assistantMessageId,
+            assistantMessageId: id,
             assistantContent,
             previousAssistantContent,
             userMessage: userMessage.content,
@@ -151,6 +153,14 @@ export function useChat(options?: SendMessageOptions) {
             "GitHub Pages chỉ chạy giao diện tĩnh nên không có API chat. NEXT_PUBLIC_API_BASE_URL phải là URL backend đã deploy, không phải API key. Nếu muốn chạy đủ tính năng, deploy app bằng Vercel."
           );
         }
+
+        assistantMessageId = generateId();
+        addMessage({
+          id: assistantMessageId,
+          role: "assistant",
+          content: "",
+          timestamp: Date.now(),
+        });
 
         const response = await fetch(getApiUrl("/api/chat"), {
           method: "POST",
@@ -175,17 +185,8 @@ export function useChat(options?: SendMessageOptions) {
         const reader = response.body?.getReader();
         if (!reader) throw new Error("No response body");
 
-        const assistantMessageId = generateId();
-        addMessage({
-          id: assistantMessageId,
-          role: "assistant",
-          content: "",
-          timestamp: Date.now(),
-        });
-
         const decoder = new TextDecoder();
         let assistantContent = "";
-        let visibleAssistantContent = "";
         let lastRenderAt = 0;
 
         const flushAssistantContent = (force = false) => {
@@ -194,11 +195,7 @@ export function useChat(options?: SendMessageOptions) {
             return;
           }
 
-          const nextVisibleContent = sanitizeAssistantContent(assistantContent);
-          if (nextVisibleContent !== visibleAssistantContent) {
-            visibleAssistantContent = nextVisibleContent;
-            updateMessage(assistantMessageId, visibleAssistantContent);
-          }
+          updateMessage(assistantMessageId!, assistantContent);
           lastRenderAt = now;
         };
 
@@ -216,8 +213,8 @@ export function useChat(options?: SendMessageOptions) {
 
         saveConversation();
         onFinish?.({
-          assistantMessageId,
-          assistantContent: visibleAssistantContent,
+          assistantMessageId: assistantMessageId!,
+          assistantContent,
           previousAssistantContent,
           userMessage: userMessage.content,
           attachments,
@@ -232,12 +229,16 @@ export function useChat(options?: SendMessageOptions) {
           console.error("Chat error:", error);
         }
 
-        addMessage({
-          id: generateId(),
-          role: "assistant",
-          content: `Mình chưa lấy được phản hồi từ AI.\n\n${errorMessage}`,
-          timestamp: Date.now(),
-        });
+        if (assistantMessageId) {
+          updateMessage(assistantMessageId, `Mình chưa lấy được phản hồi từ AI.\n\n${errorMessage}`);
+        } else {
+          addMessage({
+            id: generateId(),
+            role: "assistant",
+            content: `Mình chưa lấy được phản hồi từ AI.\n\n${errorMessage}`,
+            timestamp: Date.now(),
+          });
+        }
         saveConversation();
         onError?.(errorMessage);
       } finally {

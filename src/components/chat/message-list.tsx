@@ -23,6 +23,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { hasTestPaperContent } from "@/lib/test-paper";
 import { isTeacherResearchPrompt } from "@/lib/teacher-research-intent";
+import { isComplexQuery } from "@/lib/complexity";
 import type { Message as MessageType } from "@/types";
 import { cn } from "@/lib/utils";
 import { Message } from "./message";
@@ -277,28 +278,44 @@ export function MessageList({
             )
           )}
 
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={cn(
-                "flex w-full gap-4",
-                message.role === "user" ? "justify-end message-enter-user" : "justify-start message-enter-ai"
-              )}
-            >
-              {message.role === "assistant" && (
-                <Avatar className="mt-1 h-8 w-8 shrink-0 rounded-lg shadow-[var(--shadow-sm)]">
-                  <AvatarFallback className="rounded-lg bg-[hsl(var(--terracotta))] text-xs font-semibold text-white">
-                    AI
-                  </AvatarFallback>
-                </Avatar>
-              )}
-              <Message
-                message={message}
-                onExport={onExport}
-                testPaperContent={testPaperContentByMessageId.get(message.id)}
-              />
-            </div>
-          ))}
+          {messages.map((message, index) => {
+            let isComplex = false;
+            if (message.role === "assistant") {
+              const precedingUser = messages
+                .slice(0, index)
+                .reverse()
+                .find((m) => m.role === "user");
+              if (precedingUser) {
+                isComplex = isComplexQuery(precedingUser.content, precedingUser.attachments);
+              }
+            }
+
+            return (
+              <div
+                key={message.id}
+                className={cn(
+                  "flex w-full gap-4",
+                  message.role === "user" ? "justify-end message-enter-user" : "justify-start message-enter-ai"
+                )}
+              >
+                {message.role === "assistant" && (
+                  <Avatar className="mt-1 h-8 w-8 shrink-0 rounded-lg shadow-[var(--shadow-sm)]">
+                    <AvatarFallback className="rounded-lg bg-[hsl(var(--terracotta))] text-xs font-semibold text-white">
+                      AI
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+                <Message
+                  message={message}
+                  onExport={onExport}
+                  testPaperContent={testPaperContentByMessageId.get(message.id)}
+                  isLoading={isLoading}
+                  isLast={index === messages.length - 1}
+                  isComplex={isComplex}
+                />
+              </div>
+            );
+          })}
 
           {isLoading && (
             <div className="flex flex-col gap-4 animate-fade-in">
@@ -309,18 +326,20 @@ export function MessageList({
                 />
               )}
 
-              <div className="flex gap-3">
-                <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
-                <div className="flex flex-1 flex-col gap-2 pt-1">
-                  <div className="flex h-10 w-fit items-center gap-1 rounded-[9.6px] border border-border/15 bg-card px-4 shadow-[var(--shadow-sm)]">
-                    <div className="typing-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--terracotta))]" />
-                    <div className="typing-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--terracotta))]" />
-                    <div className="typing-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--terracotta))]" />
+              {messages[messages.length - 1]?.role !== "assistant" && (
+                <div className="flex gap-3">
+                  <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
+                  <div className="flex flex-1 flex-col gap-2 pt-1">
+                    <div className="flex h-10 w-fit items-center gap-1 rounded-[9.6px] border border-border/15 bg-card px-4 shadow-[var(--shadow-sm)]">
+                      <div className="typing-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--terracotta))]" />
+                      <div className="typing-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--terracotta))]" />
+                      <div className="typing-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--terracotta))]" />
+                    </div>
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
                   </div>
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
                 </div>
-              </div>
+              )}
             </div>
           )}
 
