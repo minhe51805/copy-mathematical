@@ -171,7 +171,7 @@ export async function copyRenderedContent(element: HTMLElement | null, fallbackM
     return;
   }
 
-  const html = singleMathml ? createMathTypeClipboardHtml(element) : createClipboardHtml(element);
+  const html = createMathTypeClipboardHtml(element);
 
   try {
     await withTimeout(
@@ -222,7 +222,7 @@ export function writeRenderedSelectionToClipboard(
 
   inlineSelectedKatexStyles(root, container);
 
-  const html = createClipboardHtml(container);
+  const html = createMathTypeClipboardHtml(container);
   const plainText = selectedMathElement
     ? getLatexMathPlainText(selectedMathElement)
     : getPlainText(container);
@@ -392,7 +392,7 @@ function preserveSoftLineBreaks(root: HTMLElement) {
 function getMathmlElement(node: Element, displayMode?: "inline" | "block") {
   const math = node.matches("math")
     ? node
-    : node.querySelector(".katex-mathml math");
+    : node.querySelector("math") || node.querySelector(".katex-mathml math");
 
   if (!math) return null;
 
@@ -456,6 +456,10 @@ function unwrapHiddenMath(root: HTMLElement) {
 }
 
 function trimUiOnlyAttributes(root: HTMLElement) {
+  root.querySelectorAll("style").forEach((node) => {
+    node.remove();
+  });
+
   root.querySelectorAll("[data-copy-ui]").forEach((node) => {
     node.remove();
   });
@@ -641,7 +645,7 @@ function getLatexMathPlainText(node: Element) {
   }
 
   const clone = node.cloneNode(true) as HTMLElement;
-  return getPlainText(clone);
+  return getPlainText(clone, false);
 }
 
 function getSingleMathmlCopyText(root: HTMLElement) {
@@ -680,10 +684,45 @@ function getSerializedMathml(node: Element) {
   return new XMLSerializer().serializeToString(math);
 }
 
-function getPlainText(element: HTMLElement): string {
+function replaceKatexWithLatexForPlainText(root: HTMLElement) {
+  const displayNodes = [
+    ...(root.matches(".katex-display") ? [root] : []),
+    ...Array.from(root.querySelectorAll<HTMLElement>(".katex-display")),
+  ];
+
+  displayNodes.forEach((node) => {
+    if (!root.contains(node)) return;
+    const latex = getLatexMathPlainText(node);
+    const textNode = document.createTextNode(latex);
+    node.replaceWith(textNode);
+  });
+
+  const inlineNodes = [
+    ...(root.matches(".katex") ? [root] : []),
+    ...Array.from(root.querySelectorAll<HTMLElement>(".katex")),
+  ]
+    .filter((node) => root.contains(node) && !node.closest(".katex-display"));
+
+  inlineNodes.forEach((node) => {
+    const latex = getLatexMathPlainText(node);
+    const textNode = document.createTextNode(latex);
+    node.replaceWith(textNode);
+  });
+}
+
+function getPlainText(element: HTMLElement, replaceMathWithLatex = true): string {
   const clone = element.cloneNode(true) as HTMLElement;
 
-  unwrapHiddenMath(clone);
+  clone.querySelectorAll("style").forEach((node) => {
+    node.remove();
+  });
+
+  if (replaceMathWithLatex) {
+    replaceKatexWithLatexForPlainText(clone);
+  } else {
+    unwrapHiddenMath(clone);
+  }
+
   clone.querySelectorAll("[data-copy-ui]").forEach((node) => {
     node.remove();
   });

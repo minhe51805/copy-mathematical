@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import fs from "fs";
+import path from "path";
 import {
   ArrowRight,
   BadgeCheck,
@@ -18,6 +20,35 @@ import { MarketingFooter } from "@/components/landing/marketing-footer";
 import { MarketingHeader } from "@/components/landing/marketing-header";
 import { HeroDecor } from "@/components/landing/hero-decor";
 import styles from "@/components/landing/marketing.module.css";
+import { WordMacroGuide } from "./macro-guide";
+
+// Copy the generated tutorial image and user screenshots from brain/workspace to public directory if they exist
+try {
+  const srcPath = "C:\\Users\\ADMIN\\.gemini\\antigravity\\brain\\0a8928b3-3823-49db-8b07-96c30a987fa4\\word_vba_tutorial_1779333063306.png";
+  const destPath = path.join(process.cwd(), "public", "word-vba-tutorial.png");
+  if (fs.existsSync(srcPath) && !fs.existsSync(destPath)) {
+    fs.copyFileSync(srcPath, destPath);
+  }
+
+  const guideFiles = [
+    { src: "Ảnh mẫu/z7848747569637_2f17d2e2fb4b64068b5e16313c02def3.jpg", dest: "public/guide-step1.jpg" },
+    { src: "Ảnh mẫu/z7848771886808_dc5e149d5cf4e93234415384e28a99a3.jpg", dest: "public/guide-step2.jpg" },
+    { src: "Ảnh mẫu/z7848747646127_128b9b01b91e34df480354b50772bd37.jpg", dest: "public/guide-step3.jpg" },
+    { src: "Ảnh mẫu/Screenshot 2026-05-21 104101.png", dest: "public/guide-step4.png" },
+    { src: "Ảnh mẫu/Screenshot 2026-05-21 104238.png", dest: "public/guide-step5.png" },
+  ];
+
+  guideFiles.forEach(({ src, dest }) => {
+    const srcPath = path.join(process.cwd(), src);
+    const destPath = path.join(process.cwd(), dest);
+    if (fs.existsSync(srcPath) && !fs.existsSync(destPath)) {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  });
+} catch (error) {
+  console.error("Failed to copy tutorial image:", error);
+}
+
 
 export const metadata: Metadata = {
   title: "Sản phẩm | AI Math Chat",
@@ -91,7 +122,7 @@ export default function ProductPage() {
         <div className={`${styles.fadeUp} relative border-l border-border/20 pl-8`}>
           <Eyebrow>Sản phẩm</Eyebrow>
           <h1 className="mt-8 max-w-[12ch] font-serif text-[clamp(3.2rem,8vw,6.5rem)] font-normal leading-[0.96] tracking-[-0.04em]">
-            Một workspace cho học toán<span className={`${styles.accentDot} text-[#ff4000]`}>.</span>
+            Một workspace cho học toán<span className={`${styles.accentDot} text-ring`}>.</span>
           </h1>
         </div>
 
@@ -119,7 +150,7 @@ export default function ProductPage() {
         <div className="mx-auto max-w-[1120px]">
           <div className="relative overflow-hidden rounded-[8px] border border-border/15 bg-[#111] shadow-[var(--shadow-md)]">
             <div className="absolute inset-x-0 top-0 z-10 flex h-11 items-center gap-2 border-b border-white/10 bg-black/45 px-4 text-xs text-white/60">
-              <span className="h-2.5 w-2.5 rounded-full bg-[#ff4000]" />
+              <span className="h-2.5 w-2.5 rounded-full bg-ring" />
               <span className="h-2.5 w-2.5 rounded-full bg-white/35" />
               <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
               <span className="ml-2">AI Math Chat · /newchat</span>
@@ -161,7 +192,7 @@ export default function ProductPage() {
                 className={`${styles.cardHover} min-h-[260px] rounded-[8px] border border-border/15 bg-card p-6`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-sm text-[#ff4000]">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="font-mono text-sm text-ring">{String(index + 1).padStart(2, "0")}</span>
                   <Icon className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <h3 className="mt-10 text-xl font-semibold leading-tight">{feature.title}</h3>
@@ -196,7 +227,7 @@ export default function ProductPage() {
                 >
                   <div className={index % 2 === 1 ? "md:order-2" : ""}>
                     <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border/15 bg-secondary px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                      <Icon className="h-3.5 w-3.5 text-[#ff4000]" />
+                      <Icon className="h-3.5 w-3.5 text-ring" />
                       {detail.eyebrow}
                     </div>
                     <h3 className="font-serif text-2xl font-normal leading-tight tracking-[-0.01em] md:text-4xl">
@@ -206,7 +237,7 @@ export default function ProductPage() {
                     <ul className="mt-5 grid gap-2">
                       {detail.points.map((point) => (
                         <li key={point} className="flex gap-2 text-sm leading-6">
-                          <BadgeCheck className="mt-1 h-4 w-4 shrink-0 text-[#ff4000]" />
+                          <BadgeCheck className="mt-1 h-4 w-4 shrink-0 text-ring" />
                           {point}
                         </li>
                       ))}
@@ -219,6 +250,8 @@ export default function ProductPage() {
           </div>
         </div>
       </section>
+
+      <WordMacroGuide />
 
       <section className="mx-auto w-full max-w-[1200px] px-5 py-16 md:px-8 md:py-24">
         <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr]">
@@ -234,7 +267,7 @@ export default function ProductPage() {
                 key={item}
                 className={`${styles.cardHover} flex gap-3 rounded-[8px] border border-border/15 bg-card p-5 text-sm leading-6`}
               >
-                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[#ff4000]" />
+                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-ring" />
                 <span>{item}</span>
               </div>
             ))}
@@ -278,7 +311,7 @@ function ProductPreviewPanel({ variant }: { variant: number }) {
       <div className="rounded-[8px] border border-border/15 bg-card p-4">
         <div className="mb-4 flex items-center justify-between border-b border-border/15 pb-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-[6px] bg-secondary text-[#ff4000]">
+            <div className="flex h-9 w-9 items-center justify-center rounded-[6px] bg-secondary text-ring">
               <Icon className="h-4 w-4" />
             </div>
             <p className="text-sm font-semibold">{content.title}</p>
@@ -305,7 +338,7 @@ function ProductPreviewPanel({ variant }: { variant: number }) {
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
     <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-      <span className="h-1.5 w-1.5 rounded-full bg-[#ff4000]" />
+      <span className="h-1.5 w-1.5 rounded-full bg-ring" />
       {children}
     </span>
   );
@@ -338,7 +371,7 @@ function DarkCta({ eyebrow, title, body }: { eyebrow: string; title: string; bod
   return (
     <section className="bg-[#0e0d0c] px-5 py-20 text-[#fafafa] md:px-8 md:py-28">
       <div className="mx-auto flex max-w-[1000px] flex-col items-center text-center">
-        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#ff4000]">{eyebrow}</span>
+        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-ring">{eyebrow}</span>
         <h2 className="mt-6 max-w-[18ch] font-serif text-[clamp(2.5rem,6vw,5rem)] font-normal leading-[1] tracking-[-0.03em]">
           {title}
         </h2>
